@@ -145,14 +145,14 @@ Last full verification run: see "Verification record" at the end of this file.
 | check | result |
 | --- | --- |
 | `npm run typecheck` | passes (strict TypeScript, no `any`, no unused locals) |
-| `npm test` (Vitest, jsdom) | 87 / 87 passed — chemistry 53 (incl. the 9 required tests, robustness, property test over 300 random configurations, spectra, colour, databases), store 11, CPU simulation 10, UI 12, benchmark 2 |
+| `npm test` (Vitest, jsdom) | 97 / 97 passed — chemistry 53 (incl. the 9 required tests, robustness, property test over 300 random configurations, spectra, colour, databases), store 11, CPU simulation 18 (drops, surface, 8 vortex-ring tests: divergence-free field, floor condition, stagnation speeds, deceleration, lifecycle, dilution), local colour LUT 2, UI 12, benchmark 2 |
 | `npm run build` | passes (Vite 5); chunks: app 300 kB (gzip 92 kB), three 1.04 MB, plotly 1.10 MB |
 | `npm run audit:code` | passes — no TODO/FIXME/placeholder/mock/fake/temporary/`any`/console.log in production sources |
-| `npm run test:e2e` (Playwright, headless Chromium with software WebGL2) | 17 / 17 passed — 15 acceptance tests, 1 GPU simulation test (1000 steps, injection, stirring, monotonic decay, reset, 10 × create/dispose without texture growth), 1 mobile hold-control test; see e2e run log summary below |
+| `npm run test:e2e` (Playwright, headless Chromium with software WebGL2) | 17 / 17 passed — 15 acceptance tests, 1 GPU simulation test (1000 steps, injection, vertical transport of a drop's titrant from the upper slices to the floor slice, stirring, monotonic decay, reset, 10 × create/dispose without texture growth), 1 mobile hold-control test; see e2e run log summary below |
 | Visual audit (recorded screenshots) | lab and studio lighting, pink liquid after 51 mL NaOH with phenolphthalein (pipeline colour #f18dfe, 97.5 % In⁻, pH 10.99), dark-theme indicator panel with spectra/structure/colour, mobile stacked layout at 393 × 851 |
-| Performance | chemistry 0.49 ms per drop (1.30 ms Davies), analysis 3.95 ms; software-rendered frames ≈ 0.4–0.8 s trigger the automatic low-quality rig, the sub-stepped simulation keeps simulated time tracking wall time up to 0.25 s per frame |
+| Performance | chemistry 0.49 ms per drop (1.30 ms Davies), analysis 3.95 ms; software-rendered frames ≈ 1–1.8 s (volumetric ray march) trigger the automatic low-quality rig (6 march steps), the sub-stepped simulation keeps simulated time tracking wall time up to 0.25 s per frame; the volume atlas is 512 × 384 texels at the default fluid resolution |
 
-Final clean e2e run (run 5, 4.1 min, no concurrent builds):
+Final clean e2e run (run 6 after the volumetric mixing model, 4.7 min, no concurrent builds):
 
 ```
 17 passed
