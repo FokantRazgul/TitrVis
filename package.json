@@ -14,7 +14,11 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "build:e2e": "vite build",
-    "audit:code": "node scripts/audit.mjs"
+    "audit:code": "node scripts/audit.mjs",
+    "setup": "npm install && echo '✓ Setup complete! Run npm run dev to start.'",
+    "docker:dev": "docker-compose up titrvis-dev",
+    "docker:prod": "docker-compose up titrvis-prod",
+    "docker:build": "docker-compose build"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

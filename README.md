@@ -13,6 +13,30 @@ advects and diffuses through a WebGL2 Stable-Fluids field; holding Shift swirls 
 liquid keeps circulating after release with an exponential decay. Every pH value is solved from
 mass and charge balance; every colour is integrated from spectra with the CIE 1931 observer.
 
+## Quick Start
+
+**Choose one:**
+
+### 🚀 Automated Setup (macOS/Linux)
+```bash
+chmod +x setup.sh && ./setup.sh && npm run dev
+```
+
+### 🐳 Docker (any OS)
+```bash
+docker-compose up titrvis-dev
+```
+Then open [http://localhost:5173](http://localhost:5173)
+
+### 📦 Manual Setup
+```bash
+npm install && npm run dev
+```
+
+👉 **See [GETTING_STARTED.md](GETTING_STARTED.md) for detailed setup options and troubleshooting.**
+
+---
+
 ## Prerequisites
 
 - Node.js ≥ 18.17 (developed with Node 22) and npm ≥ 9
