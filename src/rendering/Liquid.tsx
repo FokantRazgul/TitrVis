@@ -241,20 +241,29 @@ export function Liquid({ background }: LiquidProps) {
     const nor = surfaceGeometry.getAttribute('normal') as THREE.BufferAttribute;
     const n = SURFACE_N;
     const inset = 0.00015;
+    const rim = radius - inset;
     for (let j = 0; j < n; j++) {
       for (let i = 0; i < n; i++) {
         const idx = j * n + i;
-        let x = (-1 + (2 * i) / (n - 1)) * (radius - inset);
-        let z = (-1 + (2 * j) / (n - 1)) * (radius - inset);
-        // Clamp points outside the disc onto the rim so that the triangle fan follows the wall.
+        let x = (-1 + (2 * i) / (n - 1)) * rim;
+        let z = (-1 + (2 * j) / (n - 1)) * rim;
         const rr = Math.hypot(x, z);
-        if (rr > radius - inset) {
-          const k = (radius - inset) / rr;
+        if (rr > rim) {
+          // Grid points outside the disc are clamped onto the rim so the fan follows the wall.
+          // Their own cell lies outside the wave mask, so height and normal are taken from the
+          // wave field at the clamped position (bilinear) and its nearest inside cell.
+          const k = rim / rr;
           x *= k;
           z *= k;
+          pos.setXYZ(idx, x, height + surf.heightAt(x, z), z);
+          const gi = Math.min(n - 1, Math.max(0, Math.round(((x / surf.radius + 1) * 0.5) * (n - 1))));
+          const gj = Math.min(n - 1, Math.max(0, Math.round(((z / surf.radius + 1) * 0.5) * (n - 1))));
+          const nidx = gj * n + gi;
+          nor.setXYZ(idx, surf.normals[nidx * 3], surf.normals[nidx * 3 + 1], surf.normals[nidx * 3 + 2]);
+        } else {
+          pos.setXYZ(idx, x, height + surf.height[idx], z);
+          nor.setXYZ(idx, surf.normals[idx * 3], surf.normals[idx * 3 + 1], surf.normals[idx * 3 + 2]);
         }
-        pos.setXYZ(idx, x, height + surf.height[idx], z);
-        nor.setXYZ(idx, surf.normals[idx * 3], surf.normals[idx * 3 + 1], surf.normals[idx * 3 + 2]);
       }
     }
     pos.needsUpdate = true;
