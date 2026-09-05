@@ -388,8 +388,9 @@ describe('spectra', () => {
         const strongest = bands.reduce((a, b) => (b.epsilonMax > a.epsilonMax ? b : a));
         const max = spectrumMaximum(values)!;
         expect(Math.abs(max.wavelength - strongest.centreNm)).toBeLessThanOrEqual(10);
+        // The peak equals the strongest band (plus any overlapping shoulder contribution).
         expect(max.value / strongest.epsilonMax).toBeGreaterThan(0.99);
-        expect(max.value / strongest.epsilonMax).toBeLessThanOrEqual(1.0 + 1e-9);
+        expect(max.value / strongest.epsilonMax).toBeLessThanOrEqual(1.3);
       }
     }
   });

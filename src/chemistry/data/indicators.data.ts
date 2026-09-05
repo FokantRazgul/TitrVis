@@ -56,7 +56,10 @@ export const INDICATOR_PROVENANCE: Provenance = {
 };
 
 // Sulfonephthalein yellow (monoanion) forms share a ≈433 nm π→π* band; the blue/red dianion forms have a
-// strong band at 560–620 nm. Bandwidths (FWHM) of 75–105 nm are typical of these dyes in water.
+// strong band at 560–620 nm. Bandwidths (FWHM) of 70–130 nm are typical of these dyes in water; the azo
+// dyes' protonated (azonium) bands are the broadest. Phthalein dianion bands are asymmetric with a
+// blue-side vibronic shoulder (typical of triarylmethane chromophores), represented by a second, weaker
+// Gaussian ≈ 35–40 nm below λmax at ≈ 30 % of εmax.
 export const INDICATOR_DATA: IndicatorRaw[] = [
   {
     id: 'methyl_orange',
@@ -71,8 +74,8 @@ export const INDICATOR_DATA: IndicatorRaw[] = [
     acidFormCharge: 0,
     sodiumSalt: true,
     colourNames: { acid: 'red', base: 'yellow-orange' },
-    acidBands: [{ centreNm: 507, fwhmNm: 100, epsilonMax: 33000 }],
-    baseBands: [{ centreNm: 464, fwhmNm: 95, epsilonMax: 26000 }],
+    acidBands: [{ centreNm: 507, fwhmNm: 130, epsilonMax: 33000 }],
+    baseBands: [{ centreNm: 464, fwhmNm: 100, epsilonMax: 26000 }],
     typicalStockPercentWV: 0.04,
     notes: 'Azo dye; acid form is the red azonium/ammonium tautomer (λmax 507 nm), base form yellow (λmax 464 nm, ε ≈ 2.6 × 10⁴).',
   },
@@ -125,7 +128,7 @@ export const INDICATOR_DATA: IndicatorRaw[] = [
     acidFormCharge: 0,
     sodiumSalt: false,
     colourNames: { acid: 'red', base: 'yellow' },
-    acidBands: [{ centreNm: 520, fwhmNm: 105, epsilonMax: 37000 }],
+    acidBands: [{ centreNm: 520, fwhmNm: 125, epsilonMax: 37000 }],
     baseBands: [{ centreNm: 435, fwhmNm: 95, epsilonMax: 22000 }],
     typicalStockPercentWV: 0.02,
     notes: 'Azo dye; red zwitterionic acid form λmax 520 nm, yellow anion λmax 435 nm.',
@@ -252,7 +255,10 @@ export const INDICATOR_DATA: IndicatorRaw[] = [
     sodiumSalt: false,
     colourNames: { acid: 'colourless', base: 'pink-magenta' },
     acidBands: [],
-    baseBands: [{ centreNm: 553, fwhmNm: 70, epsilonMax: 32000 }],
+    baseBands: [
+      { centreNm: 553, fwhmNm: 70, epsilonMax: 32000 },
+      { centreNm: 515, fwhmNm: 60, epsilonMax: 9600 },
+    ],
     typicalStockPercentWV: 0.1,
     notes:
       'Phthalein; the colourless lactone loses two protons in closely spaced steps (pKa ≈ 9.05 and ≈ 9.5) to the quinoid dianion; modelled as one effective step with pKa 9.4. λmax 553 nm, ε ≈ 3.2 × 10⁴. Fading in strong alkali (carbinol formation) is not modelled.',
@@ -271,7 +277,10 @@ export const INDICATOR_DATA: IndicatorRaw[] = [
     sodiumSalt: false,
     colourNames: { acid: 'colourless', base: 'blue' },
     acidBands: [],
-    baseBands: [{ centreNm: 595, fwhmNm: 80, epsilonMax: 38000 }],
+    baseBands: [
+      { centreNm: 595, fwhmNm: 80, epsilonMax: 38000 },
+      { centreNm: 555, fwhmNm: 60, epsilonMax: 11400 },
+    ],
     typicalStockPercentWV: 0.1,
     notes: 'Phthalein; two closely spaced deprotonations modelled as one effective step (pKa 9.9). λmax 595 nm, ε₅₉₅ = 3.8 × 10⁴.',
   },

@@ -7,7 +7,8 @@ test.describe('mobile controls', () => {
   test('hold buttons drive titration and stirring; panels stack', async ({ page }) => {
     await gotoApp(page);
     await expect(page.getByTestId('mobile-controls')).toBeVisible();
-    await expect(page.getByTestId('experiment-panel')).toHaveCount(0);
+    // Desktop panels are hidden by CSS on narrow screens; the stacked mobile drawers take over.
+    await expect(page.getByTestId('experiment-panel')).toBeHidden();
     await page.getByTestId('mobile-tab-experiment').tap();
     await expect(page.getByTestId('add-indicator')).toBeVisible();
     await page.getByTestId('mobile-tab-experiment').tap();

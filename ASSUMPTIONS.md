@@ -50,8 +50,9 @@ with its justification and its consequences. Items marked **(tested)** have a de
 
 17. **Reconstructed spectra.** No tabulated ε(λ) datasets with a redistribution licence were
     available offline, so each form is reconstructed as a sum of Gaussian bands
-    ε(λ) = Σ εmax·exp(−4 ln 2 ((λ − λmax)/FWHM)²) from the cited λmax and εmax, with FWHM 70–105
-    nm typical of azo and sulfonephthalein dyes. Every spectrum carries
+    ε(λ) = Σ εmax·exp(−4 ln 2 ((λ − λmax)/FWHM)²) from the cited λmax and εmax, with FWHM 70–130
+    nm typical of azo and sulfonephthalein dyes, and a weaker blue-side shoulder (≈ 30 % of εmax,
+    35–40 nm below λmax) for the asymmetric phthalein dianion bands. Every spectrum carries
     `dataQuality: "reconstructed"`, the descriptors and the method; a test asserts the maxima are
     within ±10 nm of the cited values. Reconstructed spectra are never labelled as measured.
     **(tested)**
