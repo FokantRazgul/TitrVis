@@ -32,9 +32,10 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+      # One-time repository setup (the workflow token cannot do this itself):
+      #   Settings → Pages → "Build and deployment" → Source: "GitHub Actions".
+      # Until then this step fails with "Not Found" and nothing is published.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

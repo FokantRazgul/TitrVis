@@ -20,7 +20,8 @@ mass and charge balance; every colour is integrated from spectra with the CIE 19
 **<https://fokantrazgul.github.io/TitrVis/>**
 
 Every push to the default branch rebuilds the site and publishes it to GitHub Pages
-(`.github/workflows/deploy-pages.yml`). All you need is a laptop with a WebGL2 browser
+(`.github/workflows/deploy-pages.yml`). Repository owner, once: *Settings → Pages → Source:
+"GitHub Actions"*; afterwards every push deploys. All you need is a laptop with a WebGL2 browser
 (Chrome, Edge, Firefox, Safari ≥ 15). Without WebGL2 the app shows an explicit message instead
 of the simulator.
 
