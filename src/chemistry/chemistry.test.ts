@@ -512,6 +512,7 @@ describe('input validation', () => {
     expect(checkNumber('0.1', { min: 0.0001, max: 10 }, 'M')).toEqual({ ok: true, value: 0.1 });
     expect(checkNumber('0,25', { min: 0, max: 1 }, 'M').value).toBeCloseTo(0.25);
     expect(checkNumber('abc', { min: 1, max: 1000 }, 'mL').ok).toBe(false);
+    expect(checkNumber('', { min: 1, max: 1000 }, 'mL')).toMatchObject({ ok: false, message: 'Enter a number (mL).' });
     expect(checkNumber(5000, { min: 1, max: 1000 }, 'mL')).toMatchObject({ ok: false, value: 1000 });
     expect(checkNumber(-1, { min: 1, max: 1000 }, 'mL')).toMatchObject({ ok: false, value: 1 });
     expect(checkNumber(Number.POSITIVE_INFINITY, { min: 1, max: 1000 }, 'mL').ok).toBe(false);

@@ -124,19 +124,38 @@ export class SurfaceSimulation {
         this.velocity[idx] -= depth * 6 * w;
       }
     }
+    // The liquid is incompressible: the displaced volume must appear elsewhere on the surface.
+    this.removeMean(this.height);
+    this.removeMean(this.velocity);
+  }
+
+  /** Subtract the mean over the liquid disc (volume/flux conservation of an incompressible liquid). */
+  private removeMean(field: Float32Array): void {
+    let sum = 0;
+    let cells = 0;
+    for (let idx = 0; idx < field.length; idx++) {
+      if (!this.mask[idx]) continue;
+      sum += field[idx];
+      cells++;
+    }
+    if (cells === 0) return;
+    const mean = sum / cells;
+    for (let idx = 0; idx < field.length; idx++) if (this.mask[idx]) field[idx] -= mean;
   }
 
   /**
-   * Set the equilibrium surface shape from the bulk swirl (rad/s) and flask tilt.
-   * h_rest(r) = ω² r² / (2g) − mean, plus a linear slope from the tilt direction.
+   * Set the equilibrium surface shape from the bulk swirl (rad/s) and a surface slope vector
+   * (dimensionless, from the flask's orbital acceleration a/g):
+   *   h_rest(x, z) = ω² r² / (2g) − mean + slopeX·x + slopeZ·z
+   * The mean of the paraboloid over the disc (ω²R²/4g) is subtracted so the volume is conserved.
    */
-  setEquilibrium(swirl: number, tiltRad: number, tiltDirX: number, tiltDirZ: number): void {
+  setEquilibriumSlope(swirl: number, slopeX: number, slopeZ: number): void {
     const n = this.n;
     const g = 9.81;
     const w2 = swirl * swirl;
-    // Mean of ω²r²/(2g) over the disc = ω²R²/(4g) so that the volume is preserved.
     const mean = (w2 * this.radius * this.radius) / (4 * g);
-    const slope = Math.tan(clamp(tiltRad, -0.6, 0.6)) * 0.35; // liquid lags the tilt; partial slope
+    const sx = clamp(slopeX, -0.5, 0.5);
+    const sz = clamp(slopeZ, -0.5, 0.5);
     for (let j = 0; j < n; j++) {
       for (let i = 0; i < n; i++) {
         const idx = j * n + i;
@@ -146,19 +165,21 @@ export class SurfaceSimulation {
         }
         const x = (-1 + (2 * i) / (n - 1)) * this.radius;
         const z = (-1 + (2 * j) / (n - 1)) * this.radius;
-        const r2 = x * x + z * z;
-        this.rest[idx] = (w2 * r2) / (2 * g) - mean + slope * (x * tiltDirX + z * tiltDirZ);
+        this.rest[idx] = (w2 * (x * x + z * z)) / (2 * g) - mean + sx * x + sz * z;
       }
     }
   }
 
   /** Advance the wave equation by dt seconds with CFL-safe sub-steps. */
-  step(dt: number): void {
+  step(dtInput: number): void {
+    let dt = dtInput;
     if (!(dt > 0) || !Number.isFinite(dt)) return;
+    // Long gaps (tab hidden) are clamped: the surface simply settles.
+    dt = Math.min(dt, 0.1);
     const dx = this.dx;
     const c = this.waveSpeed;
     const maxDt = (0.5 * dx) / c;
-    const steps = Math.max(1, Math.min(64, Math.ceil(dt / maxDt)));
+    const steps = Math.max(1, Math.ceil(dt / maxDt));
     const h = dt / steps;
     const n = this.n;
     const c2 = (c * c) / (dx * dx);
@@ -186,6 +207,8 @@ export class SurfaceSimulation {
         this.height[idx] += this.velocity[idx] * h;
       }
     }
+    // Enforce volume conservation of the deviation from the equilibrium shape (which itself has zero mean).
+    this.removeMean(this.height);
     this.time += dt;
     this.computeNormals();
   }

@@ -83,7 +83,6 @@ export class DropSystem {
           state: 'pendant',
           age: 0,
         });
-        this.timeSinceLastDrop = 0;
       }
     } else {
       this.timeSinceLastDrop = Math.min(this.timeSinceLastDrop, interval);
@@ -102,6 +101,8 @@ export class DropSystem {
           if (titrating && allowNewDrops) {
             drop.state = 'falling';
             drop.age = 0;
+            // The interval clock restarts at detachment so that the period is exactly 1 / dropRate.
+            this.timeSinceLastDrop = 0;
           } else {
             // Stopped titrating while the drop was forming: the drop stays hanging at full size and
             // will fall on the next active update. This mirrors a burette tap closed with a drop hanging.

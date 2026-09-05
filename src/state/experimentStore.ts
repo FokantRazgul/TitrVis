@@ -29,6 +29,7 @@ import { reportChemistryFailure } from '../utils/diagnostics';
 import { deriveVisualState } from './visualState';
 
 export type LightingMode = 1 | 2 | 3;
+export type RenderQuality = 'high' | 'low';
 export type Theme = 'light' | 'dark';
 export type ToastKind = 'info' | 'success' | 'warning' | 'error';
 
@@ -102,6 +103,8 @@ export interface ExperimentState extends ExperimentConfig {
   rightPanelWidth: number;
   toasts: Toast[];
   webgl2Available: boolean;
+  /** Rendering quality (auto-selected from the measured frame time; never affects chemistry). */
+  renderQuality: RenderQuality;
 
   // ---- actions
   setConfig: (patch: Partial<ExperimentConfig>) => void;
@@ -122,6 +125,7 @@ export interface ExperimentState extends ExperimentConfig {
   pushToast: (message: string, kind?: ToastKind) => number;
   dismissToast: (id: number) => void;
   setWebgl2Available: (available: boolean) => void;
+  setRenderQuality: (quality: RenderQuality) => void;
 }
 
 export const DEFAULT_CONFIG: ExperimentConfig = {
@@ -310,6 +314,7 @@ export const useExperimentStore = create<ExperimentState>()((set, get) => {
     rightPanelWidth: PANEL_WIDTH.defaultRight,
     toasts: [],
     webgl2Available: true,
+    renderQuality: 'high',
 
     setConfig: (patch) => {
       const s = get();
@@ -449,6 +454,9 @@ export const useExperimentStore = create<ExperimentState>()((set, get) => {
     },
     dismissToast: (id) => set({ toasts: get().toasts.filter((t) => t.id !== id) }),
     setWebgl2Available: (available) => set({ webgl2Available: available }),
+    setRenderQuality: (quality) => {
+      if (get().renderQuality !== quality) set({ renderQuality: quality });
+    },
   };
 });
 

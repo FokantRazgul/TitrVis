@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "build:e2e": "vite build",
     "audit:code": "node scripts/audit.mjs"
   },
   "dependencies": {

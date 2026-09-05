@@ -187,7 +187,9 @@ export interface InputCheck {
 
 /** Validate a numerical user input against a closed range; returns a clamped value and a message on failure. */
 export function checkNumber(raw: number | string, range: NumberRange, unit: string): InputCheck {
-  const value = typeof raw === 'number' ? raw : Number(String(raw).replace(',', '.'));
+  const text = typeof raw === 'number' ? '' : String(raw).trim();
+  if (typeof raw !== 'number' && text === '') return { ok: false, value: range.min, message: `Enter a number (${unit}).` };
+  const value = typeof raw === 'number' ? raw : Number(text.replace(',', '.'));
   if (!Number.isFinite(value)) return { ok: false, value: range.min, message: `Enter a finite number (${unit}).` };
   if (value < range.min) return { ok: false, value: range.min, message: `Minimum is ${range.min} ${unit}.` };
   if (value > range.max) return { ok: false, value: range.max, message: `Maximum is ${range.max} ${unit}.` };
