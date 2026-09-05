@@ -49,6 +49,8 @@ export class SurfaceSimulation {
   readonly normals: Float32Array;
   /** 1 inside the liquid disc, 0 outside. */
   readonly mask: Uint8Array;
+  /** For cells outside the disc: index of the nearest inside cell (radial projection). */
+  private readonly extendIndex: Int32Array;
   private waveSpeed: number;
   private readonly fixedWaveSpeed: boolean;
   private readonly damping: number;
@@ -71,6 +73,7 @@ export class SurfaceSimulation {
     this.restAccel = new Float32Array(size);
     this.normals = new Float32Array(size * 3);
     this.mask = new Uint8Array(size);
+    this.extendIndex = new Int32Array(size);
     this.rebuildMask();
     this.computeNormals();
   }
@@ -101,9 +104,24 @@ export class SurfaceSimulation {
       for (let i = 0; i < n; i++) {
         const x = -1 + (2 * i) / (n - 1);
         const z = -1 + (2 * j) / (n - 1);
-        this.mask[j * n + i] = x * x + z * z <= 1.0001 ? 1 : 0;
+        const idx = j * n + i;
+        const inside = x * x + z * z <= 1.0001;
+        this.mask[idx] = inside ? 1 : 0;
+        if (inside) {
+          this.extendIndex[idx] = idx;
+        } else {
+          // Project radially onto the disc and take the containing cell (always inside).
+          const r = Math.hypot(x, z);
+          const k = 0.985 / r;
+          const gi = Math.round(((x * k + 1) * 0.5) * (n - 1));
+          const gj = Math.round(((z * k + 1) * 0.5) * (n - 1));
+          this.extendIndex[idx] = gj * n + gi;
+        }
       }
     }
+    // Guarantee every extension target is an inside cell (fall back to the centre otherwise).
+    const centre = Math.floor(n / 2) * n + Math.floor(n / 2);
+    for (let idx = 0; idx < n * n; idx++) if (!this.mask[this.extendIndex[idx]]) this.extendIndex[idx] = centre;
   }
 
   setRadius(radius: number): void {
@@ -172,9 +190,14 @@ export class SurfaceSimulation {
     this.composeHeight();
   }
 
-  /** h = h_eq + η inside the liquid disc. */
+  /**
+   * h = h_eq + η inside the liquid disc; outside cells copy their nearest inside cell so that
+   * bilinear samples and normals at the rim (wall top ring, clamped surface vertices) stay
+   * continuous instead of blending with zeros.
+   */
   private composeHeight(): void {
-    for (let idx = 0; idx < this.height.length; idx++) this.height[idx] = this.mask[idx] ? this.rest[idx] + this.deviation[idx] : 0;
+    for (let idx = 0; idx < this.height.length; idx++) if (this.mask[idx]) this.height[idx] = this.rest[idx] + this.deviation[idx];
+    for (let idx = 0; idx < this.height.length; idx++) if (!this.mask[idx]) this.height[idx] = this.height[this.extendIndex[idx]];
   }
 
   /** Subtract the mean over the liquid disc (volume/flux conservation of an incompressible liquid). */

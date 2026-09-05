@@ -92,6 +92,31 @@ describe('surface sloshing', () => {
     expect(az).toBeCloseTo((1.48 / 9.81) * Math.sin(0.5), 12);
   });
 
+  it('the height field is continuous across the rim: outside cells extend the nearest inside value', () => {
+    const s = new SurfaceSimulation(0.04);
+    s.setDepth(0.01);
+    const [sx, sz] = equilibriumSlope(0.7, 0.2, 1.0);
+    for (let i = 0; i < 60; i++) {
+      s.setEquilibriumSlope(0, sx, sz);
+      s.step(1 / 30);
+    }
+    // Sampling exactly on the rim must match the plane h = sx·x + sz·z to well under a millimetre.
+    for (let k = 0; k < 24; k++) {
+      const a = (k / 24) * Math.PI * 2;
+      const x = 0.04 * 0.996 * Math.cos(a);
+      const z = 0.04 * 0.996 * Math.sin(a);
+      expect(Math.abs(s.heightAt(x, z) - (sx * x + sz * z))).toBeLessThan(2.5e-4);
+    }
+    // Every outside cell equals some inside cell's value (no zeros leaking in).
+    let outside = 0;
+    for (let idx = 0; idx < s.n * s.n; idx++) {
+      if (s.mask[idx]) continue;
+      outside++;
+      expect(Math.abs(s.height[idx])).toBeGreaterThan(0);
+    }
+    expect(outside).toBeGreaterThan(0);
+  });
+
   it('wave speed follows √(g·depth) unless fixed', () => {
     const s = new SurfaceSimulation(0.04);
     s.setDepth(0.01);
