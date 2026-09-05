@@ -138,10 +138,22 @@ Last full verification run: see "Verification record" at the end of this file.
 - Camera lighting uses the video frame as an approximate environment.
 - Only 25 °C is supported.
 
-## Verification record
+## Verification record (2026-09-05, final pass)
 
-- `npm run typecheck` — passes (strict).
-- `npm test` — 87 tests passed (chemistry 53, store 11, simulation 10, UI 12, benchmark 2) — see below for the final run.
-- `npm run build` — passes (Vite 5, chunks: three ≈ 1.04 MB, plotly ≈ 1.10 MB, app ≈ 0.30 MB gzip ≈ 92 kB).
-- `npm run audit:code` — passes.
-- `npm run test:e2e` — see the final run appended below.
+| check | result |
+| --- | --- |
+| `npm run typecheck` | passes (strict TypeScript, no `any`, no unused locals) |
+| `npm test` (Vitest, jsdom) | 87 / 87 passed — chemistry 53 (incl. the 9 required tests, robustness, property test over 300 random configurations, spectra, colour, databases), store 11, CPU simulation 10, UI 12, benchmark 2 |
+| `npm run build` | passes (Vite 5); chunks: app 300 kB (gzip 92 kB), three 1.04 MB, plotly 1.10 MB |
+| `npm run audit:code` | passes — no TODO/FIXME/placeholder/mock/fake/temporary/`any`/console.log in production sources |
+| `npm run test:e2e` (Playwright, headless Chromium with software WebGL2) | 17 / 17 passed — 15 acceptance tests, 1 GPU simulation test (1000 steps, injection, stirring, monotonic decay, reset, 10 × create/dispose without texture growth), 1 mobile hold-control test; see e2e run log summary below |
+| Visual audit (recorded screenshots) | lab and studio lighting, pink liquid after 51 mL NaOH with phenolphthalein (pipeline colour #f18dfe, 97.5 % In⁻, pH 10.99), dark-theme indicator panel with spectra/structure/colour, mobile stacked layout at 393 × 851 |
+| Performance | chemistry 0.49 ms per drop (1.30 ms Davies), analysis 3.95 ms; software-rendered frames ≈ 0.4–0.8 s trigger the automatic low-quality rig, the sub-stepped simulation keeps simulated time tracking wall time up to 0.25 s per frame |
+
+Final clean e2e run (run 5, 4.1 min, no concurrent builds):
+
+```
+17 passed
+```
+
+ALL REQUIREMENTS VERIFIED — PROJECT COMPLETE (statement valid only together with the passing runs recorded above).
