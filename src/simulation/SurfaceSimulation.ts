@@ -13,8 +13,8 @@
  * from the instantaneous equilibrium (a uniformly accelerating container forces the free
  * surface only through the wall condition, equivalently through −ḧ_eq on η). Swirling at
  * 2.5 Hz drives a ≈1 cm layer close to its first sloshing mode (≈2.2 Hz for R = 4 cm), which is
- * why a hand-swirled flask develops a large rotating wave; the linear model is capped at
- * 80 % of the depth to stand in for the nonlinear saturation of a real wave. Explicit
+ * why a hand-swirled flask develops a large rotating wave; the linear model is limited smoothly
+ * to 80 % of the depth to stand in for the nonlinear saturation of a real wave. Explicit
  * integration with CFL-safe sub-stepping (c·dt/dx ≤ 0.5). Drop impacts add a Gaussian
  * depression to η. Normals are computed from the height gradient.
  */
@@ -259,18 +259,17 @@ export class SurfaceSimulation {
         }
       }
       for (let idx = 0; idx < size; idx++) {
-        if (!this.mask[idx]) continue;
-        let eta = this.deviation[idx] + this.velocity[idx] * h;
-        // Saturation: a linear wave cannot exceed the layer it lives in.
-        if (eta > cap) {
-          eta = cap;
-          if (this.velocity[idx] > 0) this.velocity[idx] *= 0.5;
-        } else if (eta < -cap) {
-          eta = -cap;
-          if (this.velocity[idx] < 0) this.velocity[idx] *= 0.5;
-        }
-        this.deviation[idx] = eta;
+        if (this.mask[idx]) this.deviation[idx] += this.velocity[idx] * h;
       }
+    }
+    // Saturation: a linear wave cannot exceed the layer it lives in. A smooth pointwise limiter
+    // η → η / (1 + (η/cap)⁴)^¼ (negligible below half the cap, asymptotic to the cap) keeps the
+    // field spatially smooth, unlike a hard clamp, which injects grid-scale noise.
+    for (let idx = 0; idx < size; idx++) {
+      if (!this.mask[idx]) continue;
+      const r = this.deviation[idx] / cap;
+      const r2 = r * r;
+      this.deviation[idx] /= Math.sqrt(Math.sqrt(1 + r2 * r2));
     }
     // Volume conservation of the deviation (the equilibrium shape itself has zero mean).
     this.removeMean(this.deviation);
