@@ -14,8 +14,6 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Expose port for preview server
+# Serve the static build on port 4173 (bind to all interfaces so the host can reach it)
 EXPOSE 4173
-
-# Start preview server
-CMD ["npm", "run", "preview"]
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0"]

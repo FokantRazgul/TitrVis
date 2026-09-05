@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 
 /** Vite build configuration. GLSL sources are imported as raw strings (`?raw`). */
 export default defineConfig({
+  // BASE_PATH is set by the GitHub Pages workflow (e.g. "/TitrVis/"); locally the app is served at "/".
+  base: process.env.BASE_PATH ?? '/',
   plugins: [react()],
   server: { port: 5173, strictPort: false },
   build: {

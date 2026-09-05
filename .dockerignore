@@ -4,7 +4,6 @@ dist
 .git
 .gitignore
 README.md
-GETTING_STARTED.md
 ARCHITECTURE.md
 CHEMISTRY.md
 ASSUMPTIONS.md
@@ -14,5 +13,5 @@ IMPLEMENTATION_STATUS.md
 .env.local
 test-results
 .playwright
+.github
 e2e
-scripts

@@ -13,47 +13,41 @@ advects and diffuses through a WebGL2 Stable-Fluids field; holding Shift swirls 
 liquid keeps circulating after release with an exponential decay. Every pH value is solved from
 mass and charge balance; every colour is integrated from spectra with the CIE 1931 observer.
 
-## Quick Start
+## Use it
 
-**Choose one:**
+### 1. In the browser — nothing to install
 
-### 🚀 Automated Setup (macOS/Linux)
-```bash
-chmod +x setup.sh && ./setup.sh && npm run dev
-```
+**<https://fokantrazgul.github.io/TitrVis/>**
 
-### 🐳 Docker (any OS)
-```bash
-docker compose up titrvis-dev
-```
-Then open [http://localhost:5173](http://localhost:5173)
+Every push to the default branch rebuilds the site and publishes it to GitHub Pages
+(`.github/workflows/deploy-pages.yml`). All you need is a laptop with a WebGL2 browser
+(Chrome, Edge, Firefox, Safari ≥ 15). Without WebGL2 the app shows an explicit message instead
+of the simulator.
 
-### 📦 Manual Setup
-```bash
-npm install && npm run dev
-```
+### 2. On your own machine — one command
 
-👉 **See [GETTING_STARTED.md](GETTING_STARTED.md) for detailed setup options and troubleshooting.**
-
----
-
-## Prerequisites
-
-- Node.js ≥ 18.17 (developed with Node 22) and npm ≥ 9
-- A browser with **WebGL2** (recent Chrome, Edge, Firefox, Safari ≥ 15). Without WebGL2 the app
-  shows an explicit message instead of the simulator.
-- For the browser test-suite: Chromium as installed by Playwright (`npx playwright install chromium`)
-
-## Installation
+Requires [Node.js](https://nodejs.org/) ≥ 18.17 (the repo pins 22 in `.nvmrc`). Then:
 
 ```bash
-npm install
+npm install && npm start
 ```
+
+`npm start` runs the Vite dev server and opens <http://localhost:5173> in your default browser.
+
+<details>
+<summary>Alternative: Docker, no Node.js on the host</summary>
+
+```bash
+docker build -t titrvis . && docker run --rm -p 4173:4173 titrvis
+```
+
+Then open <http://localhost:4173>.
+</details>
 
 ## Development
 
 ```bash
-npm run dev          # Vite dev server at http://localhost:5173
+npm run dev          # Vite dev server at http://localhost:5173 (no auto-open)
 npm run typecheck    # strict TypeScript
 ```
 
@@ -72,6 +66,8 @@ npm run test:e2e     # Playwright: builds, serves dist/ and runs the browser acc
                      # including the GPU fluid tests (software WebGL in headless Chromium)
 npm run audit:code   # scans sources for placeholders, mocks, TODOs, `any`, console.log
 ```
+
+The browser suite needs Playwright's Chromium once: `npx playwright install chromium`.
 
 ## Controls
 
