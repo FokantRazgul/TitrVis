@@ -10,7 +10,7 @@ test.describe('mobile controls', () => {
     // Desktop panels are hidden by CSS on narrow screens; the stacked mobile drawers take over.
     await expect(page.getByTestId('experiment-panel')).toBeHidden();
     await page.getByTestId('mobile-tab-experiment').tap();
-    await expect(page.getByTestId('add-indicator')).toBeVisible();
+    await expect(page.getByTestId('mobile-panels').getByTestId('add-indicator')).toBeVisible();
     await page.getByTestId('mobile-tab-experiment').tap();
 
     const titrate = page.getByTestId('mobile-titrate');
