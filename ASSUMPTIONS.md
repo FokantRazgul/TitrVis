@@ -94,8 +94,13 @@ with its justification and its consequences. Items marked **(tested)** have a de
     invisible at these time scales). The liquid shader ray-marches this volume along the
     refracted ray (12 steps, 6 in low quality) and accumulates Beer–Lambert absorbance per step,
     so side views show the plume's real depth profile. There is no full 3-D Navier–Stokes solve:
-    the vertical motion is the modelled ring field, not a computed one. **(GPU test: titrant is
-    confined to the upper slices right after impact and reaches the floor slice within 0.5 s)**
+    the vertical motion is the modelled ring field, not a computed one. Two consequences are
+    physical, not bugs: the tint of a plume follows Beer–Lambert over its own thickness (a 1 cm
+    plume shows about a sixth of the bulk chord's absorbance, so its visibility scales with the
+    indicator dose and grows sharply as equivalence is approached), and the core of a fresh drop
+    is paler than its mixing shell because the titrant carries no indicator (the LUT solves
+    include that dilution). **(GPU test: titrant is confined to the upper slices right after
+    impact and reaches the floor slice within 0.5 s)**
 24a. **Drop vortex rings.** A drop hitting the surface rolls into a vortex ring that carries the
     drop fluid downward (Chapman & Critchlow 1967; Peck & Sigurdson 1994). It is modelled as a
     Hill spherical vortex (divergence-free, continuous velocity) of initial radius 1.15 × the drop
