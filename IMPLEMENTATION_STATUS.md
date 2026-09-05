@@ -152,7 +152,7 @@ Last full verification run: see "Verification record" at the end of this file.
 | Visual audit (recorded screenshots) | lab and studio lighting, pink liquid after 51 mL NaOH with phenolphthalein (pipeline colour #f18dfe, 97.5 % In⁻, pH 10.99), dark-theme indicator panel with spectra/structure/colour, mobile stacked layout at 393 × 851; volumetric mixing (frame-stepped, 1 % phenolphthalein stock, 0.02 M acetic acid at 97.5 % of equivalence): 0.03–0.2 s after a 0.05 mL drop the side view shows the titrant in the lower ≈ 60 % of the 1 cm liquid with a clear layer above (slice means 17.6‰ floor vs 6.3‰ surface), the ring reaches the floor within one frame and spreads to a ≈ 1 cm pancake; after a 0.5 s swirl the slices homogenise (3.9–4.5‰); sloshing (Shift held, frame-stepped): the rim rises 7.3 mm on the outer side and falls 6.0 mm opposite while the glass tilts 12° around the level surface, the crest advances a quarter turn every 3 frames at 2.5 Hz, the wave decays to 0.4 mm within 2.7 s of release, and the wall follows the rim without a seam |
 | Performance | chemistry 0.49 ms per drop (1.30 ms Davies), analysis 3.95 ms; software-rendered frames ≈ 1–1.8 s (volumetric ray march) trigger the automatic low-quality rig (6 march steps), the sub-stepped simulation keeps simulated time tracking wall time up to 0.25 s per frame; the volume atlas is 512 × 384 texels at the default fluid resolution |
 
-Final clean e2e run (run 6 after the volumetric mixing model, 4.7 min, no concurrent builds):
+Final clean e2e run (run 7 after the volumetric mixing model and the sloshing surface, 5.0 min, no concurrent builds):
 
 ```
 17 passed
