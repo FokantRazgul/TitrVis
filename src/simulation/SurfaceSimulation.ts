@@ -107,21 +107,36 @@ export class SurfaceSimulation {
         const idx = j * n + i;
         const inside = x * x + z * z <= 1.0001;
         this.mask[idx] = inside ? 1 : 0;
-        if (inside) {
-          this.extendIndex[idx] = idx;
-        } else {
-          // Project radially onto the disc and take the containing cell (always inside).
-          const r = Math.hypot(x, z);
-          const k = 0.985 / r;
-          const gi = Math.round(((x * k + 1) * 0.5) * (n - 1));
-          const gj = Math.round(((z * k + 1) * 0.5) * (n - 1));
-          this.extendIndex[idx] = gj * n + gi;
-        }
+        this.extendIndex[idx] = inside ? idx : -1;
       }
     }
-    // Guarantee every extension target is an inside cell (fall back to the centre otherwise).
+    // Outside cells: nearest inside cell by grid distance (search rings of growing radius).
     const centre = Math.floor(n / 2) * n + Math.floor(n / 2);
-    for (let idx = 0; idx < n * n; idx++) if (!this.mask[this.extendIndex[idx]]) this.extendIndex[idx] = centre;
+    for (let j = 0; j < n; j++) {
+      for (let i = 0; i < n; i++) {
+        const idx = j * n + i;
+        if (this.mask[idx]) continue;
+        let best = -1;
+        let bestD = Infinity;
+        for (let ring = 1; ring <= 4 && best < 0; ring++) {
+          for (let dj = -ring; dj <= ring; dj++) {
+            for (let di = -ring; di <= ring; di++) {
+              const ii = i + di;
+              const jj = j + dj;
+              if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue;
+              const cand = jj * n + ii;
+              if (!this.mask[cand]) continue;
+              const d = di * di + dj * dj;
+              if (d < bestD) {
+                bestD = d;
+                best = cand;
+              }
+            }
+          }
+        }
+        this.extendIndex[idx] = best >= 0 ? best : centre;
+      }
+    }
   }
 
   setRadius(radius: number): void {
