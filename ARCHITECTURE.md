@@ -52,8 +52,8 @@ Rules enforced by the code structure:
      entry is a genuine solve of the flask with extra titrant);
    - the new point `{addedVolume, pH}` is appended and `chemistryVersion` increments.
 4. Only if the chemistry accepted the drop does the manager inject a velocity impulse (fluid),
-   a scalar splat (mixing) and a crater (surface). No injection happens on a refused drop, so the
-   GPU field never runs ahead of chemical truth.
+   a vortex ring carrying the drop fluid (volumetric mixing) and a crater (surface). No injection
+   happens on a refused drop, so the GPU field never runs ahead of chemical truth.
 5. The renderer, later in the same frame, reads `visualState` (bulk absorbance, LUT) and the
    simulation textures/heights. All of this is synchronous on one thread: no race conditions.
 
@@ -78,10 +78,16 @@ be sampled directly by the liquid shader (no readback in the render path).
   diffusion → forces (stirring relaxation, slosh, radial splats) → divergence → 30 Jacobi
   pressure iterations (warm-started) → gradient subtraction. The liquid disc (radius 0.49 in UV)
   is the domain; outside is wall (velocity 0, Neumann pressure).
-- `MixingSimulation.step(dt, velocity)`: splat injection → advection with relaxation towards 0
-  (rate 1/6 s⁻¹ at rest, 1/1.2 s⁻¹ while stirring) → implicit diffusion.
-- Resolution adapts between 128 / 256 / 384 / 512 from the smoothed frame time; resizing
-  resamples the fields with a copy pass. `readRenderTargetPixels` is used only by tests and
+- `MixingSimulation.step(dt, velocity)`: the scalar is volumetric — 12 horizontal slices of the
+  liquid tiled 4 × 3 into one atlas (`shaders/mixing/volume.glsl` holds the slice ↔ atlas mapping,
+  trilinear sampling and the Hill-vortex field, shared with the liquid shader). Sphere injection
+  at drop impacts → 3-D semi-Lagrangian advection (midpoint back-trace; velocity = depth-uniform
+  2-D solver flow + analytic drop vortex rings with floor images + settling; relaxation towards 0
+  at 1/10 s⁻¹ at rest, 1/1.2 s⁻¹ while stirring; entrainment dilution inside rings), sub-stepped
+  up to 3× while rings are fast → implicit 6-neighbour diffusion. Ring kinematics live on the CPU
+  in `vortexRing.ts` (pure, unit-tested) and are uploaded as uniforms each sub-step.
+- Resolution adapts between 128 / 256 / 384 / 512 from the smoothed frame time (the mixing tile
+  is half the fluid resolution); resizing resamples the fields with a copy pass. `readRenderTargetPixels` is used only by tests and
   diagnostics (`stats()`).
 - Shader compile/link failures are routed through `renderer.debug.onShaderError` to the
   manager, which surfaces an error notification; nothing is silently replaced.
@@ -95,9 +101,11 @@ be sampled directly by the liquid shader (no readback in the render path).
    (`MeshPhysicalMaterial` transmission 0.95 / roughness 0.05 / IOR 1.5; Three's transmission
    pass renders the liquid behind the glass), liquid side wall and 64×64 surface mesh
    (custom `ShaderMaterial`: Fresnel, environment reflection, Blinn–Phong highlights,
-   screen-space refraction of the background target, Beer–Lambert tint of the sampled background
-   using the chemistry absorbance scaled by the estimated optical path, LUT-based local mixing
-   colour, tone mapping and colour-space conversion via Three's chunks).
+   screen-space refraction of the background target, and a ray march of the refracted ray through
+   the volumetric mixing field — 12 steps (6 in low quality) up to the floor, free surface or wall,
+   each accumulating the Beer–Lambert absorbance of the LUT colour for the local fresh-titrant
+   fraction (log-spaced LUT, `mixingLutPosition`) over the step length; tone mapping and
+   colour-space conversion via Three's chunks).
 4. Automatic quality: sustained frame times > 90 ms switch to the low rig (no transmission,
    1024² shadows, DPR 1, quarter-resolution background) and back when < 20 ms.
 

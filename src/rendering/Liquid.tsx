@@ -1,7 +1,7 @@
 /**
  * Liquid body (side wall + deformable free surface) rendered with the liquid shader.
  * All chemical inputs (bulk absorbance, local colour LUT) come from the store's visual state;
- * spatial inputs (mixing texture, surface heights/normals) from the simulation manager.
+ * spatial inputs (volumetric mixing atlas, surface heights/normals) from the simulation manager.
  */
 
 import { useFrame, useThree } from '@react-three/fiber';
@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import liquidFrag from '../shaders/liquid/liquid.frag.glsl?raw';
 import liquidVert from '../shaders/liquid/liquid.vert.glsl?raw';
+import volumeGlsl from '../shaders/mixing/volume.glsl?raw';
 import { useExperimentStore } from '../state/experimentStore';
 import { LOCAL_LUT_SIZE } from '../state/visualState';
 import { useSimulationManager } from './SimulationContext';
@@ -22,6 +23,8 @@ interface LiquidProps {
 }
 
 const SURFACE_N = 64;
+/** Ray-march steps through the volumetric mixing field per liquid pixel. */
+const MARCH_STEPS = { high: 12, low: 6 } as const;
 const SIDE_SEGMENTS = 72;
 const SIDE_RINGS = 40;
 
@@ -46,7 +49,11 @@ export function Liquid({ background }: LiquidProps) {
   const uniforms = useMemo(
     () => ({
       uBackground: { value: background },
-      uMixing: { value: manager.mixing.texture },
+      uVolume: { value: manager.mixing.texture },
+      uVolumeTexel: { value: 1 / manager.mixing.tileResolution },
+      uRefRadius: { value: manager.mixing.geometry.refRadius },
+      uRadiusTop: { value: manager.mixing.geometry.radiusTop },
+      uRadiusBottom: { value: manager.mixing.geometry.radiusBottom },
       uLut: { value: lutTexture },
       uBulkAbsorbance: { value: new THREE.Vector3(0, 0, 0) },
       uReferencePathCm: { value: 4 },
@@ -66,6 +73,7 @@ export function Liquid({ background }: LiquidProps) {
       uIsSurface: { value: 0 },
       uRefractionStrength: { value: 0.05 },
       uEnvIntensity: { value: 2.6 },
+      uMarchSteps: { value: MARCH_STEPS.high as number },
     }),
     [background, lutTexture, manager],
   );
@@ -74,7 +82,7 @@ export function Liquid({ background }: LiquidProps) {
     () =>
       new THREE.ShaderMaterial({
         vertexShader: liquidVert,
-        fragmentShader: liquidFrag,
+        fragmentShader: `${volumeGlsl}\n${liquidFrag}`,
         uniforms,
         side: THREE.FrontSide,
         transparent: false,
@@ -182,7 +190,12 @@ export function Liquid({ background }: LiquidProps) {
     const preset = LIGHTING_PRESETS[state.lightingMode];
 
     // Shared uniforms (both materials reference the same objects except uIsSurface).
-    uniforms.uMixing.value = manager.mixing.texture;
+    uniforms.uMarchSteps.value = state.renderQuality === 'low' ? MARCH_STEPS.low : MARCH_STEPS.high;
+    uniforms.uVolume.value = manager.mixing.texture;
+    uniforms.uVolumeTexel.value = 1 / manager.mixing.tileResolution;
+    uniforms.uRefRadius.value = manager.mixing.geometry.refRadius;
+    uniforms.uRadiusTop.value = manager.mixing.geometry.radiusTop;
+    uniforms.uRadiusBottom.value = manager.mixing.geometry.radiusBottom;
     uniforms.uSurfaceRadius.value = radius;
     uniforms.uLiquidTop.value = height;
     uniforms.uSkyColour.value.copy(preset.sky);

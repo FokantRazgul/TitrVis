@@ -3,7 +3,7 @@
  *
  *   drops → impact → (1) chemistry receives the drop volume (authoritative store)
  *                    (2) fluid receives a velocity impulse
- *                    (3) mixing receives a titrant injection
+ *                    (3) mixing receives the drop as a sinking vortex ring (3-D scalar field)
  *                    (4) surface receives a crater
  *   stirring drive → flask motion, fluid forcing, surface equilibrium, mixing rate
  *
@@ -17,7 +17,7 @@ import { flaskProfile, liquidHeightForVolume, type FlaskProfile } from './flaskG
 import { DropSystem } from './DropSystem';
 import { FluidSimulation } from './FluidSimulation';
 import { installShaderErrorHandler, type ShaderCompileError } from './gpu/GpuPass';
-import { MixingSimulation } from './MixingSimulation';
+import { MixingSimulation, type MixingGeometry } from './MixingSimulation';
 import { SurfaceSimulation } from './SurfaceSimulation';
 import type { ImpactEvent, StirState } from './simulationTypes';
 import { approach, clamp, rateFromHalfLife } from '../utils/math';
@@ -160,6 +160,19 @@ export class SimulationManager {
     this.surface.setEquilibriumSlope(s.swirl, -slopeScale * Math.cos(s.phase), -slopeScale * Math.sin(s.phase));
   }
 
+  /**
+   * Geometry of the liquid volume for the volumetric mixing field: the reference radius is the
+   * largest cross-section between floor and surface (the Erlenmeyer narrows upwards), the
+   * floor/top radii are normalised by it.
+   */
+  mixingGeometry(): MixingGeometry {
+    const h = Math.max(this.liquidHeight, 1e-3);
+    let refRadius = this.surfaceRadius;
+    for (let i = 0; i <= 8; i++) refRadius = Math.max(refRadius, this.flask.innerRadius(Math.max(1e-4, (h * i) / 8)));
+    const bottom = this.flask.innerRadius(Math.min(h, 5e-4));
+    return { height: h, refRadius, radiusTop: this.surfaceRadius / refRadius, radiusBottom: Math.max(0.05, bottom / refRadius) };
+  }
+
   /** Map a flask-relative (x, z) position on the surface to fluid UV. */
   worldToUV(xRel: number, zRel: number): [number, number] {
     return [clamp(0.5 + xRel / (2 * this.surfaceRadius), 0, 1), clamp(0.5 - zRel / (2 * this.surfaceRadius), 0, 1)];
@@ -202,10 +215,12 @@ export class SimulationManager {
         const [u, v] = this.worldToUV(xr, zr);
         const radiusUV = clamp(impact.drop.fullRadius / (2 * this.surfaceRadius), 0.01, 0.2) * 2.2;
         this.fluid.addSplat({ u, v, radius: radiusUV, strength: 0.35 + 0.1 * Math.min(impact.speed, 3) });
-        this.mixing.inject({ u, v, radius: radiusUV * 1.2, amount: 1 });
+        // The drop fluid enters as a vortex ring that sinks, entrains and spreads in 3-D.
+        this.mixing.injectDrop({ x: xr, z: zr, surfaceY: this.liquidHeight, dropRadius: impact.drop.fullRadius, speed: impact.speed });
         this.surface.addImpact(xr, zr, impact.drop.fullRadius, impact.speed);
       }
       this.fluid.step(dt);
+      this.mixing.setGeometry(this.mixingGeometry());
       this.mixing.step(dt, this.fluid.velocityTexture);
       this.surface.step(dt);
     }

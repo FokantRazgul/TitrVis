@@ -74,20 +74,48 @@ with its justification and its consequences. Items marked **(tested)** have a de
 
 23. **Exact bulk state vs visual local state.** The equilibrium solver defines the bulk
     composition. The GPU mixing scalar m ∈ [0, 1] is the *local fraction of freshly added
-    titrant*; the liquid colour at a pixel is looked up in an 8-entry LUT whose entries are
-    equilibrium solves of the flask with an extra 0, …, 4 % of titrant. Interpolating between these
-    chemically computed states is a rendering approximation; it never feeds back into the bulk
-    chemistry. **(GPU tests: injection, advection, decay)**
-24. **2-D depth-averaged fluid.** Velocity and mixing live on a horizontal slice of the liquid
-    disc (unit square, disc radius 0.49 UV); the colour of a vertical column is uniform. Real
-    plumes sink and spread in 3-D.
+    titrant*; a parcel with fraction m has, relative to the bulk, the composition of the flask with
+    an extra m·V_total of titrant, so the liquid colour at a point is looked up in an 8-entry LUT
+    whose entries are equilibrium solves of the flask with an extra 0, 0.1 %, 0.32 %, 1 %, 3.2 %,
+    10 %, 32 % and 100 % of its volume of titrant (log-spaced; the first step resolves the faint
+    excess that flips an indicator at equivalence, the last is undiluted titrant in the core of a
+    fresh drop). Interpolating between these chemically computed states is a rendering
+    approximation; it never feeds back into the bulk chemistry. **(GPU tests: injection,
+    advection, decay; unit test: LUT spacing and mapping)**
+24. **Volumetric mixing on a slice stack, 2-D velocity solver.** The mixing scalar lives on a
+    3-D grid: 12 horizontal slices of the liquid (per-slice conical cross-section of the
+    Erlenmeyer), each a tile of one float atlas. Its velocity is composed of (a) the horizontal
+    flow of the 2-D Stable-Fluids solver, assumed depth-uniform (a swirled column rotates almost
+    rigidly) with a no-slip layer in the lowest 12 % of the depth, (b) analytic vortex rings from
+    drop impacts (item 24a) and (c) a settling drift of 2 mm/s × m for the denser titrant-rich
+    fluid (0.1 M NaOH is ≈ 0.4 % denser than water; the sign is not derived from the database and
+    would be wrong for a titrant lighter than the analyte). Eddy diffusivity 3·10⁻⁷ m²/s stands
+    in for the sub-grid turbulence of the plume (molecular diffusion of ions, ≈ 10⁻⁹ m²/s, is
+    invisible at these time scales). The liquid shader ray-marches this volume along the
+    refracted ray (12 steps, 6 in low quality) and accumulates Beer–Lambert absorbance per step,
+    so side views show the plume's real depth profile. There is no full 3-D Navier–Stokes solve:
+    the vertical motion is the modelled ring field, not a computed one. **(GPU test: titrant is
+    confined to the upper slices right after impact and reaches the floor slice within 0.5 s)**
+24a. **Drop vortex rings.** A drop hitting the surface rolls into a vortex ring that carries the
+    drop fluid downward (Chapman & Critchlow 1967; Peck & Sigurdson 1994). It is modelled as a
+    Hill spherical vortex (divergence-free, continuous velocity) of initial radius 1.15 × the drop
+    radius and initial speed 0.25 × the impact speed, whose radius grows by 0.18 per unit distance
+    travelled (entrainment) while its hydrodynamic impulse a³U is conserved, so U = U₀(a₀/a)³.
+    An image ring below the floor gives zero normal velocity at the floor and the doubled radial
+    spreading of a ring meeting a wall; on the floor the speed decays with τ = 0.3 s. The scalar
+    inside the growing sphere is diluted at 3(da/dt)/a so that the titrant mass is conserved as
+    ambient liquid is entrained. The 0.25 / 0.18 factors are visual calibrations within the range
+    reported for water drops at 1–3 m/s; a real ring also sheds a wake and becomes unstable, which
+    is left to diffusion and the swirl. **(tested: divergence, floor condition, stagnation-point
+    speeds, deceleration, lifecycle)**
 25. **Stable Fluids scheme** (Stam 1999): semi-Lagrangian advection is dissipative; the projection
     enforces incompressibility to the tolerance of 30 Jacobi iterations. Energy is not conserved
     by design (physical damping `exp(−ln2/1.5·dt)` plus numerical dissipation); tests check
     finiteness, boundedness, response to forcing and monotonic decay, not exact conservation.
     **(tested)**
-26. **Mixing relaxation**: the scalar decays towards the bulk with rate 1/6 s⁻¹ at rest and
-    1/1.2 s⁻¹ while stirring, representing homogenisation. The rates are visual parameters.
+26. **Mixing relaxation**: besides transport and diffusion, the scalar decays towards the bulk
+    with rate 1/10 s⁻¹ at rest and 1/1.2 s⁻¹ while stirring, representing sub-grid homogenisation.
+    The rates are visual parameters.
 27. **Stirring model**: 12° tilt, 2.5 Hz orbit of 6 mm, liquid target angular speed 0.9 rev/s,
     relaxation gain 3 s⁻¹, half-life 1.5 s after release. The flask tilts about the axis
     perpendicular to the orbit direction. The sloshing acceleration a = r ω² drives the fluid and

@@ -32,7 +32,7 @@ Last full verification run: see "Verification record" at the end of this file.
 | 17 | Drops fall toward liquid | VERIFIED | ballistic integration | U speed = √(2gh) check |
 | 18 | Drops impact the surface | VERIFIED | `DropSystem` impact detection with surface height query | U impacts; E titration (points recorded only via impacts) |
 | 19 | Impact waves | VERIFIED | `SurfaceSimulation.addImpact`, `Liquid.tsx` surface mesh | U `impacts create a depression that propagates and decays`; E surface stats finite |
-| 20 | Local mixing disturbance | VERIFIED | `MixingSimulation.inject`, `fluid.addSplat` | E GPU: injection increases the scalar; E titration: mixing max > 0 after drops |
+| 20 | Local mixing disturbance | VERIFIED | `MixingSimulation.injectDrop` (3-D vortex ring), `fluid.addSplat` | E GPU: injection increases the scalar, titrant confined to upper slices after impact then reaches the floor slice; U `vortexRing.test.ts`; E titration: mixing max > 0 after drops |
 | 21 | Titrant advects and diffuses | VERIFIED | `shaders/fluid/advect.frag.glsl`, `diffuse.frag.glsl` | E GPU suite (advection under stirring, diffusion passes, finite after 1000 steps) |
 | 22 | Hold Shift to stir | VERIFIED | keyboard hook, `SimulationManager.updateStir` | U hold semantics; E `Shift stirs` |
 | 23 | Flask tilts and rotates while stirring | VERIFIED | `Scene.tsx::FlaskAssembly` (tilt 12°, 2.5 Hz orbit) | E tiltRad > 0.15 while held |
@@ -133,8 +133,10 @@ Last full verification run: see "Verification record" at the end of this file.
 ## Known limitations (permitted by the specification, documented in ASSUMPTIONS.md)
 
 - Indicator spectra are reconstructed from literature descriptors, not measured tables.
-- The fluid is a 2-D depth-averaged visual field; the bulk chemistry is exact, the local colour is
-  an interpolation between chemically computed states.
+- The velocity solver is 2-D (depth-uniform); the mixing scalar is 3-D on 12 slices and its
+  vertical motion comes from modelled drop vortex rings and settling, not from a 3-D Navier–Stokes
+  solve. The bulk chemistry is exact; the local colour is an interpolation between chemically
+  computed states.
 - Camera lighting uses the video frame as an approximate environment.
 - Only 25 °C is supported.
 

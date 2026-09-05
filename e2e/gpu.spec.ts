@@ -25,6 +25,16 @@ test.describe('GPU fluid simulation', () => {
       mixing.inject({ u: 0.5, v: 0.5, radius: 0.05, amount: 1 });
       mixing.step(1 / 60, fluid.velocityTexture);
       out.afterInject = mixing.stats();
+      // A drop impact starts a vortex ring: the titrant appears under the surface first and is
+      // transported down to the floor (vertical structure, not a depth-uniform column).
+      mixing.reset();
+      mixing.setGeometry({ height: 0.012, refRadius: 0.04, radiusTop: 0.95, radiusBottom: 0.88 });
+      mixing.injectDrop({ x: 0, z: 0, surfaceY: 0.012, dropRadius: 0.0023, speed: 2 });
+      mixing.step(1 / 60, fluid.velocityTexture);
+      out.plumeStart = mixing.stats().sliceMeans;
+      out.ringsActive = mixing.rings.length;
+      for (let i = 0; i < 30; i++) mixing.step(1 / 60, fluid.velocityTexture);
+      out.plumeLater = mixing.stats().sliceMeans;
       // Stirring changes the velocity field.
       fluid.setStirring(1, 5, 0, 0);
       for (let i = 0; i < 120; i++) {
@@ -73,6 +83,9 @@ test.describe('GPU fluid simulation', () => {
       return out as {
         quiet: { fluid: { maxSpeed: number; finite: boolean }; mixing: { mean: number; finite: boolean } };
         afterInject: { mean: number; max: number };
+        plumeStart: number[];
+        plumeLater: number[];
+        ringsActive: number;
         stirred: { meanSpeed: number; maxSpeed: number; finite: boolean; maxAbsPressure: number };
         decay: number[];
         long: { fluid: { finite: boolean; maxSpeed: number; maxAbsPressure: number }; mixing: { finite: boolean; max: number }; steps: number };
@@ -85,6 +98,15 @@ test.describe('GPU fluid simulation', () => {
     expect(result.quiet.mixing.mean).toBe(0);
     expect(result.afterInject.max).toBeGreaterThan(0.5);
     expect(result.afterInject.mean).toBeGreaterThan(0);
+    // Right after impact the titrant sits in the upper slices only …
+    const top = result.plumeStart[result.plumeStart.length - 1];
+    expect(result.ringsActive).toBe(1);
+    expect(top).toBeGreaterThan(0);
+    expect(result.plumeStart[0]).toBeLessThan(top * 0.05);
+    // … and half a second later the sinking ring has carried it down to the floor slice.
+    expect(result.plumeLater[0]).toBeGreaterThan(result.plumeStart[0]);
+    expect(result.plumeLater[0]).toBeGreaterThan(0.2 * Math.max(...result.plumeLater));
+    for (const v of [...result.plumeStart, ...result.plumeLater]) expect(Number.isFinite(v)).toBe(true);
     expect(result.stirred.finite).toBe(true);
     expect(result.stirred.meanSpeed).toBeGreaterThan(0.1);
     expect(result.stirred.maxSpeed).toBeLessThan(10);

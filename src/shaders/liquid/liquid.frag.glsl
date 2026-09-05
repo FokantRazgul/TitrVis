@@ -1,16 +1,24 @@
 // Liquid fragment shader.
 //
 // Colour model: the bulk transmittance colour comes from the spectral pipeline (CPU) as a
-// per-channel linear-RGB absorbance at the reference optical path. The local mixing scalar
-// selects a colour from the LUT of chemically computed excess-titrant states; the shader
-// then applies Beer–Lambert scaling of that channel absorbance with the estimated optical
-// path through the liquid (a documented rendering approximation of the spectral integral).
-// Lighting: Fresnel-weighted reflection of a procedural environment, Blinn–Phong highlights
-// from two lights, screen-space refraction of the background render target, and a small
-// single-scattering term.
+// per-channel linear-RGB absorbance at the reference optical path. The ray refracted into the
+// liquid is marched through the volumetric mixing field; at every step the local scalar selects
+// a colour from the LUT of chemically computed excess-titrant states and its channel absorbance
+// is accumulated with the step length (Beer–Lambert along the actual optical path — a documented
+// rendering approximation of the spectral integral). Lighting: Fresnel-weighted reflection of a
+// procedural environment, Blinn–Phong highlights from two lights, screen-space refraction of the
+// background render target, and a small single-scattering term.
+//
+// The helpers from shaders/mixing/volume.glsl (sampleVolume, metresToVolume, sliceRadius) are
+// prepended to this source by Liquid.tsx.
 uniform sampler2D uBackground;     // scene without liquid/glass, screen-space
-uniform sampler2D uMixing;         // GPU mixing scalar (r channel), UV over the surface disc
-uniform sampler2D uLut;            // 8×1 linear-RGB colours: bulk → excess titrant
+uniform sampler2D uVolume;         // volumetric mixing scalar atlas (r channel)
+uniform float uVolumeTexel;        // 1 / tile resolution of the atlas
+uniform float uRefRadius;          // reference radius of the volume (m)
+uniform float uRadiusTop;          // free-surface radius / reference radius
+uniform float uRadiusBottom;       // floor radius / reference radius
+uniform sampler2D uLut;            // 8×1 linear-RGB colours: bulk, then 0.1 % … 100 % extra titrant (log-spaced)
+uniform int   uMarchSteps;         // ray-march steps through the volume (quality dependent)
 uniform vec3  uBulkAbsorbance;     // −log10 T per channel at the reference path (from chemistry)
 uniform float uReferencePathCm;    // optical path (cm) at which the absorbance was computed
 uniform float uSurfaceRadius;      // metres
@@ -36,6 +44,9 @@ varying vec3 vLocalPos;
 varying vec4 vClipPos;
 
 const float IOR_WATER = 1.333;
+const int MAX_MARCH_STEPS = 16;
+const float LUT_ENTRIES = 8.0;
+const float LOCAL_EXCESS_MIN = 1e-3;   // fraction represented by LUT entry 1 (see visualState.ts)
 
 vec3 environment(vec3 dir) {
   float t = clamp(dir.y, -1.0, 1.0);
@@ -44,10 +55,56 @@ vec3 environment(vec3 dir) {
   return t >= 0.0 ? up : down;
 }
 
+// LUT position for a fresh-titrant fraction m: linear below LOCAL_EXCESS_MIN, logarithmic above
+// (mirrors mixingLutPosition in visualState.ts).
+float lutPosition(float m) {
+  float n = LUT_ENTRIES - 1.0;
+  if (m <= 0.0) return 0.0;
+  float decades = -log(LOCAL_EXCESS_MIN) / log(10.0);
+  float linear = m / LOCAL_EXCESS_MIN / n;
+  float logarithmic = (1.0 + (n - 1.0) * (log(max(m, LOCAL_EXCESS_MIN)) / log(10.0) + decades) / decades) / n;
+  return min(1.0, m < LOCAL_EXCESS_MIN ? linear : logarithmic);
+}
+
 vec3 lutColour(float mixValue) {
-  // 8 texels; sample at texel centres so that mix = 0 returns the exact bulk colour.
-  float u = (clamp(mixValue, 0.0, 1.0) * 7.0 + 0.5) / 8.0;
+  // Sample at texel centres so that mix = 0 returns the exact bulk colour.
+  float u = (lutPosition(mixValue) * (LUT_ENTRIES - 1.0) + 0.5) / LUT_ENTRIES;
   return texture2D(uLut, vec2(u, 0.5)).rgb;
+}
+
+// Mixing scalar at a flask-local point (0 in the glass or outside the liquid).
+float mixingAt(vec3 local) {
+  vec3 p = metresToVolume(local, uRefRadius, uLiquidTop);
+  vec2 d = p.xy - 0.5;
+  float r = 0.49 * sliceRadius(p.z, uRadiusBottom, uRadiusTop);
+  if (dot(d, d) > r * r || p.z < -0.02 || p.z > 1.02) return 0.0;
+  return sampleVolume(uVolume, p, uVolumeTexel);
+}
+
+// Channel absorbance at the reference path for a local mixing value; exact CPU bulk value at 0.
+vec3 absorbanceFor(float mixValue) {
+  vec3 local = -log(max(lutColour(mixValue), vec3(1e-4))) / log(10.0);
+  return mix(uBulkAbsorbance, local, smoothstep(0.0, 0.25 * LOCAL_EXCESS_MIN, mixValue));
+}
+
+// Distance along the refracted ray until it leaves the liquid (floor, free surface or wall).
+float exitDistance(vec3 origin, vec3 dir) {
+  float t = 4.0 * uRefRadius;
+  if (dir.y < -1e-4) t = min(t, (uFloorY - origin.y) / dir.y);
+  else if (dir.y > 1e-4) t = min(t, (uLiquidTop - origin.y) / dir.y);
+  vec2 o = origin.xz;
+  vec2 d = dir.xz;
+  float A = dot(d, d);
+  if (A > 1e-8) {
+    float B = 2.0 * dot(o, d);
+    float C = dot(o, o) - uRefRadius * uRefRadius;
+    float disc = B * B - 4.0 * A * C;
+    if (disc > 0.0) {
+      float tw = (-B + sqrt(disc)) / (2.0 * A);
+      if (tw > 0.0) t = min(t, tw);
+    }
+  }
+  return max(t, 1e-4);
 }
 
 void main() {
@@ -58,31 +115,20 @@ void main() {
   float f0 = pow((IOR_WATER - 1.0) / (IOR_WATER + 1.0), 2.0);
   float fresnel = f0 + (1.0 - f0) * pow(1.0 - cosTheta, 5.0);
 
-  // Local mixing: sample the scalar at the (x, z) column of this fragment.
-  vec2 disc = vLocalPos.xz / (2.0 * uSurfaceRadius);
-  vec2 mixUv = vec2(0.5 + disc.x, 0.5 - disc.y);
-  float mixValue = texture2D(uMixing, mixUv).r;
-  vec3 localColour = lutColour(mixValue);
-  // Channel absorbance of the local state at the reference path.
-  vec3 absorbanceRef = -log(max(localColour, vec3(1e-4))) / log(10.0);
-  // Bulk absorbance is what the LUT's first texel encodes; keep the exact CPU value for mix = 0.
-  absorbanceRef = mix(uBulkAbsorbance, absorbanceRef, smoothstep(0.0, 0.05, mixValue));
-
-  // Estimate the optical path through the liquid along the refracted ray (cm).
+  // Refracted ray in flask-local space, marched through the volumetric mixing field.
   vec3 R = refract(-V, N, 1.0 / IOR_WATER);
   vec3 localR = normalize(mat3(uInverseModel) * R);
-  float depth = max(uLiquidTop - uFloorY, 1e-4);
-  float pathM;
-  if (uIsSurface == 1) {
-    // Ray from the surface down to the floor (or across to the wall).
-    float toFloor = localR.y < -1e-3 ? depth / (-localR.y) : 4.0 * uSurfaceRadius;
-    pathM = min(toFloor, 2.0 * uSurfaceRadius / max(length(localR.xz), 0.2));
-  } else {
-    // Side wall: chord across the body, shortened at grazing angles.
-    pathM = 2.0 * uSurfaceRadius * max(cosTheta, 0.15);
+  vec3 origin = vLocalPos + localR * 1e-4;
+  float pathM = exitDistance(origin, localR);
+  float steps = float(clamp(uMarchSteps, 1, MAX_MARCH_STEPS));
+  float stepCm = (pathM * 100.0) / steps;
+  vec3 absorbance = vec3(0.0);
+  vec3 absorbanceEntry = absorbanceFor(mixingAt(origin));
+  for (int i = 0; i < MAX_MARCH_STEPS; i++) {
+    if (i >= uMarchSteps) break;
+    vec3 p = origin + localR * (pathM * (float(i) + 0.5) / steps);
+    absorbance += absorbanceFor(mixingAt(p)) * (stepCm / max(uReferencePathCm, 0.1));
   }
-  float pathCm = pathM * 100.0;
-  vec3 absorbance = absorbanceRef * (pathCm / max(uReferencePathCm, 0.1));
   vec3 transmittance = pow(vec3(10.0), -absorbance);
 
   // Screen-space refraction of the background.
@@ -91,7 +137,7 @@ void main() {
   vec3 background = texture2D(uBackground, clamp(screenUv + offset, 0.001, 0.999)).rgb;
 
   // Single scattering: absorbed light re-emerges slightly as a milky tint of the liquid colour.
-  vec3 tint = pow(vec3(10.0), -absorbanceRef);
+  vec3 tint = pow(vec3(10.0), -absorbanceEntry);
   vec3 scatter = uScatter * (1.0 - transmittance) * tint * (0.6 + 0.4 * environment(N).g) * uEnvIntensity;
 
   // Specular highlights (Blinn–Phong) from the two main lights.

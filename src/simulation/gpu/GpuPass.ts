@@ -52,8 +52,8 @@ export function pickFloatType(renderer: THREE.WebGLRenderer): THREE.TextureDataT
   return hasFloat ? THREE.FloatType : THREE.HalfFloatType;
 }
 
-export function createFloatTarget(size: number, type: THREE.TextureDataType): THREE.WebGLRenderTarget {
-  const target = new THREE.WebGLRenderTarget(size, size, {
+export function createFloatTarget(width: number, type: THREE.TextureDataType, height: number = width): THREE.WebGLRenderTarget {
+  const target = new THREE.WebGLRenderTarget(width, height, {
     type,
     format: THREE.RGBAFormat,
     minFilter: THREE.LinearFilter,
@@ -71,9 +71,9 @@ export function createFloatTarget(size: number, type: THREE.TextureDataType): TH
 export class PingPong {
   read: THREE.WebGLRenderTarget;
   write: THREE.WebGLRenderTarget;
-  constructor(size: number, type: THREE.TextureDataType) {
-    this.read = createFloatTarget(size, type);
-    this.write = createFloatTarget(size, type);
+  constructor(width: number, type: THREE.TextureDataType, height: number = width) {
+    this.read = createFloatTarget(width, type, height);
+    this.write = createFloatTarget(width, type, height);
   }
   swap(): void {
     const t = this.read;

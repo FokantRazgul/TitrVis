@@ -8,9 +8,10 @@ configuration → chemical state → drop impact → equilibrium solve → pH �
              → absorption spectrum → CIE colour → liquid colour → titration curve → equivalence
 ```
 
-Drops detach from the burette, fall, hit the liquid, create waves and a local titrant plume that
-advects and diffuses through a WebGL2 Stable-Fluids field; holding Shift swirls the flask and the
-liquid keeps circulating after release with an exponential decay. Every pH value is solved from
+Drops detach from the burette, fall, hit the liquid, create waves and enter as a vortex ring that
+sinks, entrains liquid and spreads along the floor of a volumetric mixing field driven by a WebGL2
+Stable-Fluids solver; holding Shift swirls the flask and the liquid keeps circulating after release
+with an exponential decay. Every pH value is solved from
 mass and charge balance; every colour is integrated from spectra with the CIE 1931 observer.
 
 ## Use it
@@ -97,11 +98,14 @@ The browser suite needs Playwright's Chromium once: `npx playwright install chro
 - **Colour** — Beer–Lambert absorbance of the HIn/In⁻ mixture, D65 illumination, CIE 1931 2°
   XYZ, IEC sRGB. The swatch in the Indicator panel and the liquid share the same pipeline output.
 - **Simulation** — GPU velocity/pressure solver (advection, diffusion, forces, divergence,
-  pressure, projection), GPU mixing scalar, 64×64 CPU wave surface with normals, ballistic drops
-  with pendant/fall/impact states, stirring with 12° tilt, 2.5 Hz orbit and 1.5 s half-life decay.
+  pressure, projection), volumetric GPU mixing field (12 depth slices) in which each drop enters
+  as a sinking, entraining vortex ring that spreads along the floor, 64×64 CPU wave surface with
+  normals, ballistic drops with pendant/fall/impact states, stirring with 12° tilt, 2.5 Hz orbit
+  and 1.5 s half-life decay.
 - **Rendering** — procedural Erlenmeyer flask (ISO 1773 sizes) with transmissive glass, custom
-  liquid shader (Fresnel, refraction, spectral tint, local mixing), burette with drops, table,
-  paper, three lighting rigs (camera mode uses the device camera when granted).
+  liquid shader (Fresnel, refraction, ray-marched Beer–Lambert tint through the 3-D mixing
+  field), burette with drops, table, paper, three lighting rigs (camera mode uses the device
+  camera when granted).
 - **UI** — glassmorphism panels, searchable substance cards, validated inputs, Plotly titration
   curve throttled to 10 Hz, Indicator panel with spectra/structure/colour and PNG export, CSV
   export, dark UI theme, resizable and collapsible panels, mobile hold controls, toasts,

@@ -268,7 +268,7 @@ export interface ChemicalVisualState {
   totalVolumeML: number;
   /**
    * Colours of the bulk liquid mixed with an increasing local excess of titrant
-   * (index 0 = bulk, last = bulk + LOCAL_EXCESS_FRACTION of titrant), each computed by the
+   * (index 0 = bulk, then bulk + 0.1 % … 100 % of the flask volume of extra titrant, log-spaced), each computed by the
    * equilibrium solver. The GPU mixing field interpolates between these chemically computed
    * endpoint states — a documented rendering approximation, never the bulk truth.
    */
