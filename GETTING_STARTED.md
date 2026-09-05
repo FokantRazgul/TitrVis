@@ -52,7 +52,7 @@ The script checks your Node.js version and installs all dependencies automatical
 ### Development with hot reload
 
 ```bash
-docker-compose up titrvis-dev
+docker compose up titrvis-dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser. Changes to code are reflected instantly.
@@ -60,7 +60,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser. Changes to 
 ### Production build
 
 ```bash
-docker-compose up titrvis-prod
+docker compose up titrvis-prod
 ```
 
 Open [http://localhost:4173](http://localhost:4173).

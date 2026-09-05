@@ -24,7 +24,7 @@ chmod +x setup.sh && ./setup.sh && npm run dev
 
 ### 🐳 Docker (any OS)
 ```bash
-docker-compose up titrvis-dev
+docker compose up titrvis-dev
 ```
 Then open [http://localhost:5173](http://localhost:5173)
 

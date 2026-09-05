@@ -39,10 +39,10 @@ test-e2e:
 	npm run test:e2e
 
 docker-dev:
-	docker-compose up titrvis-dev
+	docker compose up titrvis-dev
 
 docker-prod:
-	docker-compose up titrvis-prod
+	docker compose up titrvis-prod
 
 clean:
 	rm -rf node_modules dist .next
