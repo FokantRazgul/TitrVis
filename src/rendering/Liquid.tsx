@@ -150,22 +150,29 @@ export function Liquid({ background }: LiquidProps) {
     };
   }, [surfaceGeometry, sideGeometry, sideMaterial, surfaceMaterial, lutTexture]);
 
-  /** Rebuild the side wall (lathe of the inner profile up to the liquid height). */
-  const rebuildSide = (height: number) => {
+  /**
+   * Rebuild the side wall: a lathe of the inner profile whose top ring follows the sloshing free
+   * surface at the rim, so the wall and the surface mesh meet without a seam while the liquid
+   * climbs the wall or tilts relative to the flask.
+   */
+  const rebuildSide = (height: number, surfaceRadius: number) => {
     const flask = useExperimentStore.getState().flask;
+    const surf = manager.surface;
     const pos = sideGeometry.getAttribute('position') as THREE.BufferAttribute;
     const nor = sideGeometry.getAttribute('normal') as THREE.BufferAttribute;
     const inset = 0.0002; // sit just inside the glass wall
-    for (let r = 0; r <= SIDE_RINGS; r++) {
-      const y = (height * r) / SIDE_RINGS;
-      const radius = Math.max(0, flask.innerRadius(Math.max(y, 1e-4)) - inset);
-      // Slope of the profile for the normal.
-      const dy = 1e-4;
-      const dr = (flask.innerRadius(Math.max(y + dy, 1e-4)) - flask.innerRadius(Math.max(y - dy, 1e-4))) / (2 * dy);
-      for (let s = 0; s <= SIDE_SEGMENTS; s++) {
-        const a = (s / SIDE_SEGMENTS) * Math.PI * 2;
-        const ca = Math.cos(a);
-        const sa = Math.sin(a);
+    const rimRadius = Math.max(0, surfaceRadius - 0.00015);
+    for (let s = 0; s <= SIDE_SEGMENTS; s++) {
+      const a = (s / SIDE_SEGMENTS) * Math.PI * 2;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const rimHeight = Math.max(1e-4, height + surf.heightAt(rimRadius * ca, rimRadius * sa));
+      for (let r = 0; r <= SIDE_RINGS; r++) {
+        const y = (rimHeight * r) / SIDE_RINGS;
+        const radius = Math.max(0, flask.innerRadius(Math.max(y, 1e-4)) - inset);
+        // Slope of the profile for the normal.
+        const dy = 1e-4;
+        const dr = (flask.innerRadius(Math.max(y + dy, 1e-4)) - flask.innerRadius(Math.max(y - dy, 1e-4))) / (2 * dy);
         const idx = r * (SIDE_SEGMENTS + 1) + s;
         pos.setXYZ(idx, radius * ca, y, radius * sa);
         const nx = ca;
@@ -223,11 +230,10 @@ export function Liquid({ background }: LiquidProps) {
       uniforms.uInverseModel.value.copy(sideMesh.current.matrixWorld).invert();
     }
 
-    if (Math.abs(height - lastHeight.current) > 5e-5 || Math.abs(radius - lastRadius.current) > 5e-5) {
-      rebuildSide(height);
-      lastHeight.current = height;
-      lastRadius.current = radius;
-    }
+    // The wall follows the rim of the free surface every frame (cheap: 41 × 73 vertices).
+    rebuildSide(height, radius);
+    lastHeight.current = height;
+    lastRadius.current = radius;
 
     // Surface mesh from the wave simulation.
     const surf = manager.surface;

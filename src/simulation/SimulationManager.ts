@@ -18,7 +18,7 @@ import { DropSystem } from './DropSystem';
 import { FluidSimulation } from './FluidSimulation';
 import { installShaderErrorHandler, type ShaderCompileError } from './gpu/GpuPass';
 import { MixingSimulation, type MixingGeometry } from './MixingSimulation';
-import { SurfaceSimulation } from './SurfaceSimulation';
+import { SurfaceSimulation, equilibriumSlope } from './SurfaceSimulation';
 import type { ImpactEvent, StirState } from './simulationTypes';
 import { approach, clamp, rateFromHalfLife } from '../utils/math';
 
@@ -154,10 +154,12 @@ export class SimulationManager {
     // handled consistently in worldToUV below.
     this.fluid.setStirring(s.drive, STIR.omega, ax * uvPerMetre * 0.15, -az * uvPerMetre * 0.15);
     this.mixing.setStirDrive(s.drive);
-    // Surface equilibrium: liquid climbs the wall opposite to the acceleration (slope = a/g),
-    // scaled by drive, plus the paraboloid of the bulk swirl.
-    const slopeScale = (s.drive * accel) / 9.81;
-    this.surface.setEquilibriumSlope(s.swirl, -slopeScale * Math.cos(s.phase), -slopeScale * Math.sin(s.phase));
+    // Surface equilibrium in flask-local coordinates: the free surface stays level in the world
+    // while the flask tilts, climbs the outer wall under the orbital acceleration (scaled by
+    // drive), and takes the paraboloid of the bulk swirl. The dynamic slosh wave is driven by
+    // the time derivative of this shape inside the surface simulation.
+    const [slopeX, slopeZ] = equilibriumSlope(s.phase, s.tiltRad, s.drive * accel);
+    this.surface.setEquilibriumSlope(s.swirl, slopeX, slopeZ);
   }
 
   /**
@@ -191,6 +193,7 @@ export class SimulationManager {
     this.liquidHeight = liquidHeightForVolume(this.flask, input.liquidVolumeML);
     this.surfaceRadius = Math.max(0.005, this.flask.innerRadius(Math.max(this.liquidHeight, 1e-4)));
     this.surface.setRadius(this.surfaceRadius);
+    this.surface.setDepth(this.liquidHeight);
     const impacts: ImpactEvent[] = [];
     if (total <= 0) {
       this.updateStir(0, input.stirring);

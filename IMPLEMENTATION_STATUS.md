@@ -145,7 +145,7 @@ Last full verification run: see "Verification record" at the end of this file.
 | check | result |
 | --- | --- |
 | `npm run typecheck` | passes (strict TypeScript, no `any`, no unused locals) |
-| `npm test` (Vitest, jsdom) | 97 / 97 passed — chemistry 53 (incl. the 9 required tests, robustness, property test over 300 random configurations, spectra, colour, databases), store 11, CPU simulation 18 (drops, surface, 8 vortex-ring tests: divergence-free field, floor condition, stagnation speeds, deceleration, lifecycle, dilution), local colour LUT 2, UI 12, benchmark 2 |
+| `npm test` (Vitest, jsdom) | 101 / 101 passed — chemistry 53 (incl. the 9 required tests, robustness, property test over 300 random configurations, spectra, colour, databases), store 11, CPU simulation 22 (drops, surface waves, 4 sloshing tests: static tilt followed, resonant rotating crest within the cap, level-surface slope vs the renderer's quaternion, √(g·depth) wave speed; 8 vortex-ring tests: divergence-free field, floor condition, stagnation speeds, deceleration, lifecycle, dilution), local colour LUT 2, UI 12, benchmark 2 |
 | `npm run build` | passes (Vite 5); chunks: app 300 kB (gzip 92 kB), three 1.04 MB, plotly 1.10 MB |
 | `npm run audit:code` | passes — no TODO/FIXME/placeholder/mock/fake/temporary/`any`/console.log in production sources |
 | `npm run test:e2e` (Playwright, headless Chromium with software WebGL2) | 17 / 17 passed — 15 acceptance tests, 1 GPU simulation test (1000 steps, injection, vertical transport of a drop's titrant from the upper slices to the floor slice, stirring, monotonic decay, reset, 10 × create/dispose without texture growth), 1 mobile hold-control test; see e2e run log summary below |

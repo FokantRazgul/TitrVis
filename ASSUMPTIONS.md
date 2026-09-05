@@ -124,10 +124,20 @@ with its justification and its consequences. Items marked **(tested)** have a de
 27. **Stirring model**: 12° tilt, 2.5 Hz orbit of 6 mm, liquid target angular speed 0.9 rev/s,
     relaxation gain 3 s⁻¹, half-life 1.5 s after release. The flask tilts about the axis
     perpendicular to the orbit direction. The sloshing acceleration a = r ω² drives the fluid and
-    the surface slope a/g. A hand-swirled flask is not a magnetic stirrer. **(tested)**
-28. **Surface**: 64×64 damped wave equation (c = 0.35 m/s, damping 2.5 s⁻¹) with Neumann walls,
-    volume-conserving impacts (mean removed), equilibrium shape = paraboloid ω²r²/2g + slope.
-    Capillary effects, meniscus and breaking waves are not modelled. **(tested)**
+    the quasi-static surface slope a/g (liquid climbs the outer wall). The free surface stays
+    level in the world while the flask tilts: in flask coordinates its equilibrium slope is
+    −(up_local.x, up_local.z)/up_local.y with up_local the world vertical in the tilted frame
+    (tested against the renderer's quaternion). A hand-swirled flask is not a magnetic stirrer.
+    **(tested)**
+28. **Surface**: 64×64 linear shallow-water sloshing for the deviation η from the quasi-static
+    shape h_eq (level surface + a/g slope + paraboloid ω²r²/2g): η̈ = c²∇²η − kη̇ − ḧ_eq with
+    c = √(g·depth) (clamped 0.12–0.7 m/s), damping k = 2.5 s⁻¹, Neumann walls, volume-conserving
+    impacts (mean removed). The 2.5 Hz drive is close to the first sloshing mode of a ≈1 cm layer
+    (≈2.2 Hz at R = 4 cm), so the wave that runs round the flask is resonantly amplified; the
+    linear amplitude is capped at 80 % of the depth as a stand-in for nonlinear saturation and
+    breaking. ḧ_eq is a second difference of the equilibrium over simulation steps (≈2 % error
+    at 12 steps per period). Capillary effects and the meniscus are not modelled. **(tested:
+    static tilt followed, rotating crest, capped amplitude, wave speed)**
 29. **Drops** are spheres of the configured volume, growing at the tip for 55 % of the drop
     interval, then falling under g = 9.81 m/s² without drag (fall height ≈ 20 cm → ≈ 0.2 s;
     drag would change this by < 1 %). Only impact transfers volume. **(tested)**

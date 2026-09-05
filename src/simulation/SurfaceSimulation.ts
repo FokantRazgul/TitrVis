@@ -1,14 +1,22 @@
 /**
- * Deformable liquid surface: a damped 2-D wave equation on an N×N height grid covering the
+ * Deformable liquid surface: linear shallow-water sloshing on an N×N height grid covering the
  * circular surface of the liquid.
  *
- *     ∂²h/∂t² = c² ∇²h − k ∂h/∂t + forcing
+ * The total surface height is h = h_eq + η, where h_eq is the quasi-static shape imposed by the
+ * flask's motion (the surface stays level in the world while the flask tilts, climbs the outer
+ * wall under the orbital acceleration a/g, and takes the paraboloid ω²r²/2g of the bulk swirl)
+ * and η is the dynamic deviation obeying the forced damped wave equation
  *
- * integrated explicitly with CFL-safe sub-stepping (c·dt/dx ≤ 0.5). Drop impacts add a
- * Gaussian depression; stirring couples through the bulk swirl of the fluid: a rotating
- * fluid has a free surface h(r) = ω² r² / (2g) + const (paraboloid), which is used as the
- * equilibrium shape towards which the surface relaxes, together with a tilt-induced slope
- * while the flask is inclined. Normals are computed from the height gradient.
+ *     ∂²η/∂t² = c² ∇²η − k ∂η/∂t − ∂²h_eq/∂t²,      c = √(g·depth),  ∂η/∂n = 0 at the wall,
+ *
+ * which is the linear shallow-water problem in the container frame written for the deviation
+ * from the instantaneous equilibrium (a uniformly accelerating container forces the free
+ * surface only through the wall condition, equivalently through −ḧ_eq on η). Swirling at
+ * 2.5 Hz drives a ≈1 cm layer close to its first sloshing mode (≈2.2 Hz for R = 4 cm), which is
+ * why a hand-swirled flask develops a large rotating wave; the linear model is capped at
+ * 80 % of the depth to stand in for the nonlinear saturation of a real wave. Explicit
+ * integration with CFL-safe sub-stepping (c·dt/dx ≤ 0.5). Drop impacts add a Gaussian
+ * depression to η. Normals are computed from the height gradient.
  */
 
 import { clamp } from '../utils/math';
@@ -24,32 +32,62 @@ export interface SurfaceOptions {
 export class SurfaceSimulation {
   readonly n: number;
   radius: number;
-  /** Height above the rest level (m), row-major, size n*n. */
+  /** Total height above the flat rest level (m) = equilibrium + deviation, row-major, size n*n. */
   readonly height: Float32Array;
+  /** Dynamic deviation η from the equilibrium shape (m). */
+  readonly deviation: Float32Array;
+  /** ∂η/∂t (m/s). */
   readonly velocity: Float32Array;
-  /** Equilibrium height (paraboloid + tilt), size n*n. */
+  /** Equilibrium height h_eq (level surface in the world + slosh slope + paraboloid), size n*n. */
   private readonly rest: Float32Array;
+  private readonly prevRest: Float32Array;
+  private readonly restVelocity: Float32Array;
+  private readonly restAccel: Float32Array;
+  /** Liquid depth (m): sets the shallow-water wave speed and the saturation amplitude. */
+  private depth: number;
   /** Surface normals (xyz interleaved), size n*n*3. */
   readonly normals: Float32Array;
   /** 1 inside the liquid disc, 0 outside. */
   readonly mask: Uint8Array;
-  private readonly waveSpeed: number;
+  private waveSpeed: number;
+  private readonly fixedWaveSpeed: boolean;
   private readonly damping: number;
   private time = 0;
 
   constructor(radius: number, options: SurfaceOptions = {}) {
     this.n = options.resolution ?? 64;
     this.radius = radius;
+    this.fixedWaveSpeed = options.waveSpeed !== undefined;
     this.waveSpeed = options.waveSpeed ?? 0.35;
+    this.depth = (this.waveSpeed * this.waveSpeed) / SurfaceSimulation.G;
     this.damping = options.damping ?? 2.5;
     const size = this.n * this.n;
     this.height = new Float32Array(size);
+    this.deviation = new Float32Array(size);
     this.velocity = new Float32Array(size);
     this.rest = new Float32Array(size);
+    this.prevRest = new Float32Array(size);
+    this.restVelocity = new Float32Array(size);
+    this.restAccel = new Float32Array(size);
     this.normals = new Float32Array(size * 3);
     this.mask = new Uint8Array(size);
     this.rebuildMask();
     this.computeNormals();
+  }
+
+  static readonly G = 9.81;
+  /** Deviation cap as a fraction of the depth (nonlinear saturation stand-in). */
+  static readonly SATURATION = 0.8;
+
+  /** Set the liquid depth (m): wave speed √(g·depth) unless fixed by options, and the cap on η. */
+  setDepth(depth: number): void {
+    this.depth = Math.max(1e-3, depth);
+    if (!this.fixedWaveSpeed) this.waveSpeed = clamp(Math.sqrt(SurfaceSimulation.G * this.depth), 0.12, 0.7);
+  }
+
+  /** Current wave speed (m/s). */
+  get speed(): number {
+    return this.waveSpeed;
   }
 
   /** Grid spacing (m). */
@@ -77,8 +115,12 @@ export class SurfaceSimulation {
 
   reset(): void {
     this.height.fill(0);
+    this.deviation.fill(0);
     this.velocity.fill(0);
     this.rest.fill(0);
+    this.prevRest.fill(0);
+    this.restVelocity.fill(0);
+    this.restAccel.fill(0);
     this.time = 0;
     this.computeNormals();
   }
@@ -120,13 +162,19 @@ export class SurfaceSimulation {
         if (!this.mask[idx]) continue;
         const d2 = (i - gx) * (i - gx) + (j - gz) * (j - gz);
         const w = Math.exp(-d2 / (2 * sigma * sigma));
-        this.height[idx] -= depth * w;
+        this.deviation[idx] -= depth * w;
         this.velocity[idx] -= depth * 6 * w;
       }
     }
     // The liquid is incompressible: the displaced volume must appear elsewhere on the surface.
-    this.removeMean(this.height);
+    this.removeMean(this.deviation);
     this.removeMean(this.velocity);
+    this.composeHeight();
+  }
+
+  /** h = h_eq + η inside the liquid disc. */
+  private composeHeight(): void {
+    for (let idx = 0; idx < this.height.length; idx++) this.height[idx] = this.mask[idx] ? this.rest[idx] + this.deviation[idx] : 0;
   }
 
   /** Subtract the mean over the liquid disc (volume/flux conservation of an incompressible liquid). */
@@ -144,14 +192,16 @@ export class SurfaceSimulation {
   }
 
   /**
-   * Set the equilibrium surface shape from the bulk swirl (rad/s) and a surface slope vector
-   * (dimensionless, from the flask's orbital acceleration a/g):
-   *   h_rest(x, z) = ω² r² / (2g) − mean + slopeX·x + slopeZ·z
+   * Set the equilibrium surface shape from the bulk swirl (rad/s) and a surface slope vector in
+   * flask-local coordinates (dimensionless; level-in-the-world compensation of the flask tilt
+   * plus the orbital acceleration a/g, see `equilibriumSlope`):
+   *   h_eq(x, z) = ω² r² / (2g) − mean + slopeX·x + slopeZ·z
    * The mean of the paraboloid over the disc (ω²R²/4g) is subtracted so the volume is conserved.
+   * Call once per simulation step; `step` differentiates the history to obtain ḧ_eq.
    */
   setEquilibriumSlope(swirl: number, slopeX: number, slopeZ: number): void {
     const n = this.n;
-    const g = 9.81;
+    const g = SurfaceSimulation.G;
     const w2 = swirl * swirl;
     const mean = (w2 * this.radius * this.radius) / (4 * g);
     const sx = clamp(slopeX, -0.5, 0.5);
@@ -170,45 +220,61 @@ export class SurfaceSimulation {
     }
   }
 
-  /** Advance the wave equation by dt seconds with CFL-safe sub-steps. */
+  /** Advance the forced wave equation for η by dt seconds with CFL-safe sub-steps. */
   step(dtInput: number): void {
     let dt = dtInput;
     if (!(dt > 0) || !Number.isFinite(dt)) return;
     // Long gaps (tab hidden) are clamped: the surface simply settles.
     dt = Math.min(dt, 0.1);
+    const n = this.n;
+    const size = n * n;
+    // Inertial forcing −ḧ_eq from the equilibrium history (second difference over the step).
+    for (let idx = 0; idx < size; idx++) {
+      const v = (this.rest[idx] - this.prevRest[idx]) / dt;
+      this.restAccel[idx] = (v - this.restVelocity[idx]) / dt;
+      this.restVelocity[idx] = v;
+      this.prevRest[idx] = this.rest[idx];
+    }
     const dx = this.dx;
     const c = this.waveSpeed;
     const maxDt = (0.5 * dx) / c;
     const steps = Math.max(1, Math.ceil(dt / maxDt));
     const h = dt / steps;
-    const n = this.n;
     const c2 = (c * c) / (dx * dx);
     const damp = Math.exp(-this.damping * h);
-    // Relaxation of the mean shape towards the equilibrium (time constant 0.25 s).
-    const relax = 1 - Math.exp(-h / 0.25);
+    const cap = Math.max(0.002, Math.min(SurfaceSimulation.SATURATION * this.depth, 0.03));
     for (let s = 0; s < steps; s++) {
       for (let j = 1; j < n - 1; j++) {
         for (let i = 1; i < n - 1; i++) {
           const idx = j * n + i;
           if (!this.mask[idx]) continue;
-          const center = this.height[idx];
+          const center = this.deviation[idx];
           // Neumann boundary: outside-mask neighbours mirror the centre value.
-          const l = this.mask[idx - 1] ? this.height[idx - 1] : center;
-          const r = this.mask[idx + 1] ? this.height[idx + 1] : center;
-          const u = this.mask[idx - n] ? this.height[idx - n] : center;
-          const d = this.mask[idx + n] ? this.height[idx + n] : center;
+          const l = this.mask[idx - 1] ? this.deviation[idx - 1] : center;
+          const r = this.mask[idx + 1] ? this.deviation[idx + 1] : center;
+          const u = this.mask[idx - n] ? this.deviation[idx - n] : center;
+          const d = this.mask[idx + n] ? this.deviation[idx + n] : center;
           const lap = l + r + u + d - 4 * center;
-          const restoring = (this.rest[idx] - center) * relax * 4;
-          this.velocity[idx] = (this.velocity[idx] + (c2 * lap + restoring) * h) * damp;
+          this.velocity[idx] = (this.velocity[idx] + (c2 * lap - this.restAccel[idx]) * h) * damp;
         }
       }
-      for (let idx = 0; idx < n * n; idx++) {
+      for (let idx = 0; idx < size; idx++) {
         if (!this.mask[idx]) continue;
-        this.height[idx] += this.velocity[idx] * h;
+        let eta = this.deviation[idx] + this.velocity[idx] * h;
+        // Saturation: a linear wave cannot exceed the layer it lives in.
+        if (eta > cap) {
+          eta = cap;
+          if (this.velocity[idx] > 0) this.velocity[idx] *= 0.5;
+        } else if (eta < -cap) {
+          eta = -cap;
+          if (this.velocity[idx] < 0) this.velocity[idx] *= 0.5;
+        }
+        this.deviation[idx] = eta;
       }
     }
-    // Enforce volume conservation of the deviation from the equilibrium shape (which itself has zero mean).
-    this.removeMean(this.height);
+    // Volume conservation of the deviation (the equilibrium shape itself has zero mean).
+    this.removeMean(this.deviation);
+    this.composeHeight();
     this.time += dt;
     this.computeNormals();
   }
@@ -257,4 +323,22 @@ export class SurfaceSimulation {
     }
     return { maxHeight: maxH, maxVelocity: maxV, finite, energy };
   }
+}
+
+/**
+ * Equilibrium surface slope (∂h/∂x, ∂h/∂z) in flask-local coordinates for a flask tilted by
+ * `tiltRad` about the horizontal axis (−sin φ, 0, cos φ) (as the renderer does) while its base
+ * orbits with phase φ and centripetal acceleration `accel` (m/s²):
+ *   – the free surface stays level in the world, so relative to the tilted flask it slopes by
+ *     −(up_local.x, up_local.z) / up_local.y where up_local is the world up axis expressed in the
+ *     flask frame, up_local = (cos φ sin t, cos t, sin φ sin t);
+ *   – the liquid climbs the wall opposite to the acceleration (outer wall): slope = −a/g with
+ *     a = −accel (cos φ, sin φ), i.e. +accel/g (cos φ, sin φ).
+ */
+export function equilibriumSlope(phase: number, tiltRad: number, accel: number): [number, number] {
+  const cosP = Math.cos(phase);
+  const sinP = Math.sin(phase);
+  const tanT = Math.tan(tiltRad);
+  const slosh = accel / SurfaceSimulation.G;
+  return [-tanT * cosP + slosh * cosP, -tanT * sinP + slosh * sinP];
 }

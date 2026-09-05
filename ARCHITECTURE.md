@@ -63,7 +63,11 @@ Rules enforced by the code structure:
 release τ 0.17 s so the flask is upright after ≈0.5 s), a phase advancing at 2.5 Hz, tilt = 12°·drive,
 orbit offset 6 mm·drive, and a bulk swirl that relaxes towards ω_target while driven and decays as
 `exp(−ln2/1.5 · dt)` afterwards. The same drive feeds the GPU forcing (`uStirDrive`, `uStirOmega`,
-slosh acceleration), the mixing relaxation rate and the surface equilibrium (paraboloid + slope).
+slosh acceleration), the mixing relaxation rate and the surface equilibrium shape
+(`equilibriumSlope`: level-in-the-world compensation of the tilt + a/g climb on the outer wall,
+plus the swirl paraboloid). `SurfaceSimulation` integrates the shallow-water deviation from that
+shape, forced by its second time derivative, so a 2.5 Hz swirl raises a resonant rotating wave
+whose crest the liquid side-wall mesh follows every frame (`Liquid.rebuildSide`).
 
 ## GPU architecture
 
