@@ -20,7 +20,7 @@ import { LabEnvironment } from './Environment';
 import { Flask, GLASS_LAYER } from './Flask';
 import { Lighting } from './Lighting';
 import { LIQUID_LAYER, Liquid } from './Liquid';
-import { registerScene } from './sceneRegistry';
+import { registerScene, registerCameraControls, type CameraControlsHandle } from './sceneRegistry';
 import { SimulationContext } from './SimulationContext';
 import { useCameraStream } from './useCameraStream';
 
@@ -48,7 +48,7 @@ function FlaskAssembly({ manager, background }: { manager: SimulationManager; ba
 function CameraRig() {
   const flask = useExperimentStore((s) => s.flask);
   const { camera } = useThree();
-  const controls = useRef<{ target: THREE.Vector3; update: () => void } | null>(null);
+  const controls = useRef<CameraControlsHandle | null>(null);
   useEffect(() => {
     const h = flask.spec.height;
     const target = new THREE.Vector3(0, h * 0.9, 0);
@@ -58,6 +58,8 @@ function CameraRig() {
       controls.current.target.copy(target);
       controls.current.update();
     }
+    registerCameraControls(controls.current);
+    return () => registerCameraControls(null);
   }, [flask, camera]);
   const h = flask.spec.height;
   return (
