@@ -1,0 +1,18 @@
+/// <reference types="vite/client" />
+
+declare module '*.glsl?raw' {
+  const src: string;
+  export default src;
+}
+declare module '*.vert?raw' {
+  const src: string;
+  export default src;
+}
+declare module '*.frag?raw' {
+  const src: string;
+  export default src;
+}
+declare module 'plotly.js-basic-dist-min' {
+  import Plotly from 'plotly.js';
+  export = Plotly;
+}
